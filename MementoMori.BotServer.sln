@@ -2,6 +2,16 @@
 Microsoft Visual Studio Solution File, Format Version 12.00
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "MementoMori.BotServer", "MementoMori.BotServer\MementoMori.BotServer.csproj", "{D285DC9E-7FFE-4E32-AAAC-DF01F4DEDC91}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "MementoMori", "core\MementoMori\MementoMori.csproj", "{3A250BFC-D884-429D-B766-0411B8BA978D}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "EleCho.GoCqHttpSdk.MessageMatching", "elecho\src\EleCho.GoCqHttpSdk.MessageMatching\EleCho.GoCqHttpSdk.MessageMatching.csproj", "{36FF64A3-4841-453B-8413-76AA26CB786E}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "EleCho.GoCqHttpSdk", "elecho\src\EleCho.GoCqHttpSdk\EleCho.GoCqHttpSdk.csproj", "{BA2154D2-5450-4EDE-AC6D-7A28511D7369}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "MementoMori.Common", "core\MementoMori.Common\MementoMori.Common.csproj", "{6AFBF1AC-3541-43A0-8E69-08154A56D96C}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "MementoMori.Ortega", "core\MementoMori.Ortega\MementoMori.Ortega.csproj", "{161D5485-4C1B-47FE-920A-89E5AB15FA88}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -12,5 +22,25 @@ Global
 		{D285DC9E-7FFE-4E32-AAAC-DF01F4DEDC91}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{D285DC9E-7FFE-4E32-AAAC-DF01F4DEDC91}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{D285DC9E-7FFE-4E32-AAAC-DF01F4DEDC91}.Release|Any CPU.Build.0 = Release|Any CPU
+		{3A250BFC-D884-429D-B766-0411B8BA978D}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{3A250BFC-D884-429D-B766-0411B8BA978D}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{3A250BFC-D884-429D-B766-0411B8BA978D}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{3A250BFC-D884-429D-B766-0411B8BA978D}.Release|Any CPU.Build.0 = Release|Any CPU
+		{36FF64A3-4841-453B-8413-76AA26CB786E}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{36FF64A3-4841-453B-8413-76AA26CB786E}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{36FF64A3-4841-453B-8413-76AA26CB786E}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{36FF64A3-4841-453B-8413-76AA26CB786E}.Release|Any CPU.Build.0 = Release|Any CPU
+		{BA2154D2-5450-4EDE-AC6D-7A28511D7369}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{BA2154D2-5450-4EDE-AC6D-7A28511D7369}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{BA2154D2-5450-4EDE-AC6D-7A28511D7369}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{BA2154D2-5450-4EDE-AC6D-7A28511D7369}.Release|Any CPU.Build.0 = Release|Any CPU
+		{6AFBF1AC-3541-43A0-8E69-08154A56D96C}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{6AFBF1AC-3541-43A0-8E69-08154A56D96C}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{6AFBF1AC-3541-43A0-8E69-08154A56D96C}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{6AFBF1AC-3541-43A0-8E69-08154A56D96C}.Release|Any CPU.Build.0 = Release|Any CPU
+		{161D5485-4C1B-47FE-920A-89E5AB15FA88}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{161D5485-4C1B-47FE-920A-89E5AB15FA88}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{161D5485-4C1B-47FE-920A-89E5AB15FA88}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{161D5485-4C1B-47FE-920A-89E5AB15FA88}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 EndGlobal

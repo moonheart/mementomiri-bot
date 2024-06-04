@@ -1,4 +1,4 @@
-﻿<Project Sdk="Microsoft.NET.Sdk">
+﻿<Project Sdk="Microsoft.NET.Sdk.Worker">
 
     <PropertyGroup>
         <OutputType>Exe</OutputType>
@@ -6,5 +6,19 @@
         <ImplicitUsings>enable</ImplicitUsings>
         <Nullable>enable</Nullable>
     </PropertyGroup>
+
+    <ItemGroup>
+        <PackageReference Include="HtmlConverter" Version="1.0.0" />
+        <PackageReference Include="LiteDB" Version="5.0.19" />
+        <PackageReference Include="Microsoft.Extensions.Hosting" Version="8.0.0" />
+        <PackageReference Include="Refit" Version="7.0.0" />
+        <PackageReference Include="SourceInject" Version="0.1.12" />
+    </ItemGroup>
+
+    <ItemGroup>
+      <ProjectReference Include="..\core\MementoMori\MementoMori.csproj" />
+      <ProjectReference Include="..\elecho\src\EleCho.GoCqHttpSdk.MessageMatching\EleCho.GoCqHttpSdk.MessageMatching.csproj" />
+      <ProjectReference Include="..\elecho\src\EleCho.GoCqHttpSdk\EleCho.GoCqHttpSdk.csproj" />
+    </ItemGroup>
 
 </Project>

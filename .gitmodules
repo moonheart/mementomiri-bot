@@ -1,3 +1,6 @@
 [submodule "core"]
 	path = core
 	url = https://github.com/moonheart/mementomori-helper.git
+[submodule "elecho"]
+	path = elecho
+	url = https://github.com/OrgEleCho/EleCho.GoCqHttpSdk.git
