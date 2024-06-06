@@ -37,6 +37,7 @@ public partial class MementoMoriQueryPlugin : CqMessageMatchPostPlugin
     private readonly ILogger<MementoMoriQueryPlugin> _logger;
     private readonly LiteDbAccessor _dbAccessor;
     private readonly IHttpClientFactory _httpClientFactory;
+    private readonly ImageUtil _imageUtil;
 
     [AutoPostConstruct]
     public void MementoMoriQueryPlugin1()
@@ -133,7 +134,7 @@ public partial class MementoMoriQueryPlugin : CqMessageMatchPostPlugin
                 msg.AppendLine();
                 var mainText = $"<div>{noticeInfo.MainText}</div>"; //.Replace("<br>", "\r\n");
                 msg.AppendLine(mainText);
-                var bytes = ImageUtil.HtmlToImage(msg.ToString());
+                var bytes = _imageUtil.HtmlToImage(msg.ToString());
                 foreach (var group in _botOptions.Value.OpenedGroups)
                 {
                     // await Task.Delay(TimeSpan.FromSeconds(1));
@@ -207,6 +208,7 @@ public partial class MementoMoriQueryPlugin : CqMessageMatchPostPlugin
         msg.AppendLine("/(无穷|红|黄|绿|蓝)塔 关卡 (示例 /绿塔 499)");
         msg.AppendLine("/(战力|等级|主线|塔|竞技场)排名 (日|韩|亚|美|欧|国际)1 (示例 /战力排名 日10)");
         msg.AppendLine("/公告 [ID] (示例 /公告 123 ，/公告)");
+        msg.AppendLine("/头像 [稀有度] [元素] [等级] [@xxx](/头像 lr+7 光 lv333 @xxx)");
         await _sessionAccessor.Session.SendGroupMessageAsync(context.GroupId, new CqMessage(msg.ToString()));
     }
 
@@ -293,7 +295,7 @@ public partial class MementoMoriQueryPlugin : CqMessageMatchPostPlugin
 
         msg.AppendLine("</table>");
 
-        var bytes = ImageUtil.HtmlToImage(msg.ToString(), 1200);
+        var bytes = _imageUtil.HtmlToImage(msg.ToString(), 1200);
 
         var cqImageMsg = CqImageMsg.FromBytes(bytes);
         await _sessionAccessor.Session.SendGroupMessageAsync(context.GroupId, new CqMessage(cqImageMsg));
@@ -411,7 +413,7 @@ public partial class MementoMoriQueryPlugin : CqMessageMatchPostPlugin
 
         BuildEnemyInfo(enemies, msg);
 
-        var bytes = ImageUtil.HtmlToImage(msg.ToString(), 1200);
+        var bytes = _imageUtil.HtmlToImage(msg.ToString(), 1200);
 
         var cqImageMsg = CqImageMsg.FromBytes(bytes);
         await _sessionAccessor.Session.SendGroupMessageAsync(context.GroupId, new CqMessage(cqImageMsg));
@@ -531,7 +533,7 @@ public partial class MementoMoriQueryPlugin : CqMessageMatchPostPlugin
 
         BuildEnemyInfo(enemies, msg);
 
-        var bytes = ImageUtil.HtmlToImage(msg.ToString(), 1200);
+        var bytes = _imageUtil.HtmlToImage(msg.ToString(), 1200);
 
         var cqImageMsg = CqImageMsg.FromBytes(bytes);
         await _sessionAccessor.Session.SendGroupMessageAsync(context.GroupId, new CqMessage(cqImageMsg));
@@ -589,7 +591,7 @@ public partial class MementoMoriQueryPlugin : CqMessageMatchPostPlugin
 
         msg.AppendLine("</tbody></table>");
 
-        var bytes = ImageUtil.HtmlToImage(msg.ToString(), null);
+        var bytes = _imageUtil.HtmlToImage(msg.ToString(), null);
 
         var cqImageMsg = CqImageMsg.FromBytes(bytes);
         await _sessionAccessor.Session.SendGroupMessageAsync(context.GroupId, new CqMessage(cqImageMsg));
@@ -638,7 +640,7 @@ public partial class MementoMoriQueryPlugin : CqMessageMatchPostPlugin
         {
             using var db = _dbAccessor.GetDb();
             var noticeInfo = noticeId is > 0 and <= 20
-                ? db.GetCollection<NoticeInfo>().FindAll().OrderByDescending(d=>d.Id).Take(30).ToList().Where(d => d.Id % 10 != 6).Skip(noticeId - 1).FirstOrDefault()
+                ? db.GetCollection<NoticeInfo>().FindAll().OrderByDescending(d => d.Id).Take(30).ToList().Where(d => d.Id % 10 != 6).Skip(noticeId - 1).FirstOrDefault()
                 : db.GetCollection<NoticeInfo>().FindById(noticeId);
             if (noticeInfo == null)
             {
@@ -651,7 +653,7 @@ public partial class MementoMoriQueryPlugin : CqMessageMatchPostPlugin
                 notice.AppendLine();
                 var mainText = $"<div>{noticeInfo.MainText}</div>";
                 notice.AppendLine(mainText);
-                var bytes = ImageUtil.HtmlToImage(notice.ToString());
+                var bytes = _imageUtil.HtmlToImage(notice.ToString());
                 var cqImageMsg = CqImageMsg.FromBytes(bytes);
                 msg = new CqMessage(cqImageMsg, new CqTextMsg(noticeInfo.Title));
             }
@@ -671,6 +673,58 @@ public partial class MementoMoriQueryPlugin : CqMessageMatchPostPlugin
         }
 
         await _sessionAccessor.Session.SendGroupMessageAsync(context.GroupId, msg);
+    }
+
+    [CqMessageMatch(@"^\/头像\s*(?:(?<rarity>n|(?:s|ss|u|l)?r)(?<plus>\+)?(?<numberStr>\d)?)?\s*(?<elementStr>(蓝|红|绿|黄|光|暗))?\s*(lv(?<lvStr>\d+))?")]
+    public async Task GenerateAvatar(CqGroupMessagePostContext context, string rarity, string plus, string numberStr, string elementStr, string? lvStr)
+    {
+        if (plus == "+" && rarity.Equals("n", StringComparison.OrdinalIgnoreCase)) return;
+        if (numberStr != "" && !rarity.Equals("lr", StringComparison.OrdinalIgnoreCase)) return;
+        var number = 0;
+        if (numberStr != "" && !int.TryParse(numberStr, out number) || number > 10 || number < 0) return;
+        var lv = 1;
+        if (lvStr != "" && !int.TryParse(lvStr, out lv) || lv > 999 || lv < 1) return;
+
+        var characterRarity = (rarity, plus, number) switch
+        {
+            ("lr", "+", 10) => CharacterRarityFlags.LRPlus10,
+            ("lr", "+", 9) => CharacterRarityFlags.LRPlus9,
+            ("lr", "+", 8) => CharacterRarityFlags.LRPlus8,
+            ("lr", "+", 7) => CharacterRarityFlags.LRPlus7,
+            ("lr", "+", 6) => CharacterRarityFlags.LRPlus6,
+            ("lr", "+", 5) => CharacterRarityFlags.LRPlus5,
+            ("lr", "+", 4) => CharacterRarityFlags.LRPlus4,
+            ("lr", "+", 3) => CharacterRarityFlags.LRPlus3,
+            ("lr", "+", 2) => CharacterRarityFlags.LRPlus2,
+            ("lr", "+", _) => CharacterRarityFlags.LRPlus,
+            ("lr", "", _) => CharacterRarityFlags.LR,
+            ("ur", "+", _) => CharacterRarityFlags.URPlus,
+            ("ur", "", _) => CharacterRarityFlags.UR,
+            ("ssr", "+", _) => CharacterRarityFlags.SSRPlus,
+            ("ssr", "", _) => CharacterRarityFlags.SSR,
+            ("sr", "+", _) => CharacterRarityFlags.SRPlus,
+            ("sr", "", _) => CharacterRarityFlags.SR,
+            ("r", "+", _) => CharacterRarityFlags.RPlus,
+            ("r", "", _) => CharacterRarityFlags.R,
+            ("n", "", _) => CharacterRarityFlags.N,
+            _ => CharacterRarityFlags.N
+        };
+        
+        var elementType = elementStr switch
+        {
+            "蓝" => ElementType.Blue,
+            "红" => ElementType.Red,
+            "绿" => ElementType.Green,
+            "黄" => ElementType.Yellow,
+            "光" => ElementType.Light,
+            "暗" => ElementType.Dark,
+            _ => ElementType.Blue
+        };
+
+        var qqNumber = (context.Message.Find(d => d is CqAtMsg) as CqAtMsg)?.Target ?? context.Sender.UserId;
+        var bytes = await _imageUtil.BuildAvatar(qqNumber, characterRarity, lv, elementType);
+        var cqImageMsg = CqImageMsg.FromBytes(bytes);
+        await _sessionAccessor.Session.SendGroupMessageAsync(context.GroupId, new CqMessage(cqImageMsg));
     }
 
     [CqMessageMatch(@"^/更新主数据$")]
