@@ -722,9 +722,20 @@ public partial class MementoMoriQueryPlugin : CqMessageMatchPostPlugin
         };
 
         var qqNumber = (context.Message.Find(d => d is CqAtMsg) as CqAtMsg)?.Target ?? context.Sender.UserId;
-        var bytes = await _imageUtil.BuildAvatar(qqNumber, characterRarity, lv, elementType);
-        var cqImageMsg = CqImageMsg.FromBytes(bytes);
-        await _sessionAccessor.Session.SendGroupMessageAsync(context.GroupId, new CqMessage(cqImageMsg));
+        try
+        {
+            var bytes = await _imageUtil.BuildAvatar(qqNumber, characterRarity, lv, elementType);
+            if (bytes.Length == 0)
+            {
+                return;
+            }
+            var cqImageMsg = CqImageMsg.FromBytes(bytes);
+            await _sessionAccessor.Session.SendGroupMessageAsync(context.GroupId, new CqMessage(cqImageMsg));
+        }
+        catch (Exception e)
+        {
+            Console.WriteLine(e);
+        }
     }
 
     [CqMessageMatch(@"^/更新主数据$")]

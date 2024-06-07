@@ -1,0 +1,1 @@
+docker buildx build -t moonheartmoon/mementomori-botserver -f MementoMori.BotServer/Dockerfile . && docker push moonheartmoon/mementomori-botserver:latest

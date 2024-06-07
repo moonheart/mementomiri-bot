@@ -1,0 +1,13 @@
+bin/
+obj/
+/packages/
+riderModule.iml
+/_ReSharper.Caches/
+.vs
+.idea
+docfx/
+*.db
+tempImg
+MementoMori.BotServer/Master/
+appsettings.json
+appsettings.Development.json
