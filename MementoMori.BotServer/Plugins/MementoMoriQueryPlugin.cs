@@ -720,7 +720,7 @@ public partial class MementoMoriQueryPlugin : CqMessageMatchPostPlugin
             var rRarity = 0.4377d / rCharacterMbs.Count;
             AddCharacterItems(rCharacterMbs, items, rRarity, CharacterRarityFlags.R);
 
-            List<CharacterMB> upCharacterMbs = [CharacterTable.GetById(upList[index1].PickUpCharacterId)]; // 1 个 UP
+            List<CharacterMB> upCharacterMbs = [CharacterTable.GetById(upList[index1 - 1].PickUpCharacterId)]; // 1 个 UP
             var upRate = 0.0137d / upCharacterMbs.Count;
             AddCharacterItems(upCharacterMbs, items, upRate, CharacterRarityFlags.SR);
 
@@ -748,7 +748,7 @@ public partial class MementoMoriQueryPlugin : CqMessageMatchPostPlugin
                 return;
             }
 
-            List<CharacterMB> upCharacterMbs = [CharacterTable.GetById(upList[index2].PickUpCharacterId)]; // 1 个 UP
+            List<CharacterMB> upCharacterMbs = [CharacterTable.GetById(upList[index2 - 1].PickUpCharacterId)]; // 1 个 UP
             var upRate = 0.02171d / upCharacterMbs.Count;
             AddCharacterItems(upCharacterMbs, items, upRate, CharacterRarityFlags.SR);
 
@@ -868,7 +868,7 @@ public partial class MementoMoriQueryPlugin : CqMessageMatchPostPlugin
                 }, // 魔水晶 1
             ];
             items.AddRange(otherItems);
-            
+
             var image = await _gachaGenerator.Generate(items);
             var cqImageMsg = CqImageMsg.FromBytes(image);
             await _sessionAccessor.Session.SendGroupMessageAsync(context.GroupId, new CqMessage(cqImageMsg));
@@ -876,11 +876,11 @@ public partial class MementoMoriQueryPlugin : CqMessageMatchPostPlugin
         else if (name.ToLower() == "白金")
         {
             List<GachaItemRate> items = [];
-            
+
             var nCharacterMbs = CharacterTable.GetArray().Where(d => d.RarityFlags == CharacterRarityFlags.N).ToList(); // N 角色
             var nRarity = 0.5177d / nCharacterMbs.Count;
             AddCharacterItems(nCharacterMbs, items, nRarity, CharacterRarityFlags.N);
-            
+
             var rCharacterMbs = CharacterTable.GetArray().Where(d => d.RarityFlags == CharacterRarityFlags.R).ToList(); // R 角色
             var rRarity = 0.4377d / rCharacterMbs.Count;
             AddCharacterItems(rCharacterMbs, items, rRarity, CharacterRarityFlags.R);
@@ -894,11 +894,12 @@ public partial class MementoMoriQueryPlugin : CqMessageMatchPostPlugin
             var srLightDarkCharacterMbs = CharacterTable.GetArray().Where(d => srLightDarkCharacterIds.Contains(d.Id)).ToList();
             var srLightDarkRate = 0.002d / srLightDarkCharacterMbs.Count;
             AddCharacterItems(srLightDarkCharacterMbs, items, srLightDarkRate, CharacterRarityFlags.SR);
-            
+
             var image = await _gachaGenerator.Generate(items);
             var cqImageMsg = CqImageMsg.FromBytes(image);
             await _sessionAccessor.Session.SendGroupMessageAsync(context.GroupId, new CqMessage(cqImageMsg));
         }
+
         List<GachaCaseUiMB> GetUpList()
         {
             List<GachaCaseUiMB> res = [];
