@@ -194,7 +194,7 @@ public partial class MementoMoriQueryPlugin : CqMessageMatchPostPlugin
         return _botOptions.Value.OpenedGroups.Contains(context.GroupId);
     }
 
-    [CqMessageMatch("^/命令列表$")]
+    [CqMessageMatch("^/命令列表$", RegexOptions.IgnoreCase | RegexOptions.Compiled)]
     public async Task FunctionList(CqGroupMessagePostContext context)
     {
         if (!IsGroupAllowed(context)) return;
@@ -215,7 +215,7 @@ public partial class MementoMoriQueryPlugin : CqMessageMatchPostPlugin
     }
 
     // 通过 CqMessageMatch 来指定匹配规则 (例如这里非贪婪匹配两个中括号之间的任意内容, 并命名为 content 组)
-    [CqMessageMatch(@"^/角色ID列表$")]
+    [CqMessageMatch(@"^/角色ID列表$", RegexOptions.IgnoreCase | RegexOptions.Compiled)]
     public async Task QueryCharacterIds(CqGroupMessagePostContext context)
     {
         if (!IsGroupAllowed(context)) return;
@@ -231,12 +231,12 @@ public partial class MementoMoriQueryPlugin : CqMessageMatchPostPlugin
         await _sessionAccessor.Session.SendGroupMessageAsync(context.GroupId, new CqMessage(msg.ToString()));
     }
 
-    [CqMessageMatch(@"^/技能\s*(?<idStr>\d+)$")]
+    [CqMessageMatch(@"^/技能\s*(?<idStr>\d+)$", RegexOptions.IgnoreCase | RegexOptions.Compiled)]
     public async Task QueryCharacterSkills(CqGroupMessagePostContext context, string idStr)
     {
         if (!IsGroupAllowed(context)) return;
         _logger.LogInformation($"{nameof(QueryCharacterSkills)} {idStr}");
-        var id = long.Parse(idStr);   
+        var id = long.Parse(idStr);
 
         if (skillGenerator.TryGenerate(id, out var image, out var err))
         {
@@ -249,7 +249,7 @@ public partial class MementoMoriQueryPlugin : CqMessageMatchPostPlugin
         }
     }
 
-    [CqMessageMatch(@"^/速度列表$")]
+    [CqMessageMatch(@"^/速度列表$", RegexOptions.IgnoreCase | RegexOptions.Compiled)]
     public async Task QuerySpeedList(CqGroupMessagePostContext context)
     {
         if (!IsGroupAllowed(context)) return;
@@ -269,7 +269,7 @@ public partial class MementoMoriQueryPlugin : CqMessageMatchPostPlugin
         await _sessionAccessor.Session.SendGroupMessageAsync(context.GroupId, new CqMessage(msg.ToString()));
     }
 
-    [CqMessageMatch(@"^/角色\s*(?<idStr>\d+)$")]
+    [CqMessageMatch(@"^/角色\s*(?<idStr>\d+)$", RegexOptions.IgnoreCase | RegexOptions.Compiled)]
     public async Task QueryCharacter(CqGroupMessagePostContext context, string idStr)
     {
         if (!IsGroupAllowed(context)) return;
@@ -320,7 +320,7 @@ public partial class MementoMoriQueryPlugin : CqMessageMatchPostPlugin
                                       </style>
                                       """;
 
-    [CqMessageMatch(@"^/主线\s*(?<quest>\d+-\d+)$")]
+    [CqMessageMatch(@"^/主线\s*(?<quest>\d+-\d+)$", RegexOptions.IgnoreCase | RegexOptions.Compiled)]
     public async Task QueryMainQuerst(CqGroupMessagePostContext context, string quest)
     {
         if (!IsGroupAllowed(context)) return;
@@ -429,7 +429,7 @@ public partial class MementoMoriQueryPlugin : CqMessageMatchPostPlugin
         return $"{num}{unit[index]}";
     }
 
-    [CqMessageMatch(@"^/(?<towerTypeStr>(无穷|红|黄|金|绿|翠|蓝))塔\s*(?<quest>\d+)$")]
+    [CqMessageMatch(@"^/(?<towerTypeStr>(无穷|红|黄|金|绿|翠|蓝))塔\s*(?<quest>\d+)$", RegexOptions.IgnoreCase | RegexOptions.Compiled)]
     public async Task QueryTowerInfo(CqGroupMessagePostContext context, string towerTypeStr, string quest)
     {
         if (!IsGroupAllowed(context)) return;
@@ -470,7 +470,7 @@ public partial class MementoMoriQueryPlugin : CqMessageMatchPostPlugin
         await _sessionAccessor.Session.SendGroupMessageAsync(context.GroupId, new CqMessage(cqImageMsg));
     }
 
-    [CqMessageMatch(@"^/(?<rankType>战力|等级|主线|塔)排名\s*(?<server>日|韩|亚|美|欧|国际)(?<worldStr>\d+)$")]
+    [CqMessageMatch(@"^/(?<rankType>战力|等级|主线|塔)排名\s*(?<server>日|韩|亚|美|欧|国际)(?<worldStr>\d+)$", RegexOptions.IgnoreCase | RegexOptions.Compiled)]
     public async Task GetPlayerRanking(CqGroupMessagePostContext context, string rankType, string server, string worldStr)
     {
         if (!IsGroupAllowed(context)) return;
@@ -529,7 +529,7 @@ public partial class MementoMoriQueryPlugin : CqMessageMatchPostPlugin
         // await _sessionAccessor.Session.SendGroupMessageAsync(context.GroupId, new CqMessage(msg.ToString()));
     }
 
-    [CqMessageMatch(@"^/竞技场排名\s*(?<server>日|韩|亚|美|欧|国际)(?<worldStr>\d+)$")]
+    [CqMessageMatch(@"^/竞技场排名\s*(?<server>日|韩|亚|美|欧|国际)(?<worldStr>\d+)$", RegexOptions.IgnoreCase | RegexOptions.Compiled)]
     public async Task GetArenaRanking(CqGroupMessagePostContext context, string server, string worldStr)
     {
         if (!IsGroupAllowed(context)) return;
@@ -561,7 +561,7 @@ public partial class MementoMoriQueryPlugin : CqMessageMatchPostPlugin
         await _sessionAccessor.Session.SendGroupMessageAsync(context.GroupId, new CqMessage(msg.ToString()));
     }
 
-    [CqMessageMatch(@"^/公告\s*?(?<noticeIdStr>\d+)?$")]
+    [CqMessageMatch(@"^/公告\s*?(?<noticeIdStr>\d+)?$", RegexOptions.IgnoreCase | RegexOptions.Compiled)]
     public async Task RecentNotice(CqGroupMessagePostContext context, string? noticeIdStr)
     {
         if (!IsGroupAllowed(context)) return;
@@ -606,7 +606,7 @@ public partial class MementoMoriQueryPlugin : CqMessageMatchPostPlugin
         await _sessionAccessor.Session.SendGroupMessageAsync(context.GroupId, msg);
     }
 
-    [CqMessageMatch(@"^\/头像\s*(?:(?<rarity>n|(?:s|ss|u|l)?r)(?<plus>\+)?(?<numberStr>\d)?)?\s*(?<elementStr>(蓝|红|绿|黄|光|暗))?\s*(lv(?<lvStr>\d+))?")]
+    [CqMessageMatch(@"^\/头像\s*(?:(?<rarity>n|(?:s|ss|u|l)?r)(?<plus>\+)?(?<numberStr>\d)?)?\s*(?<elementStr>(蓝|红|绿|黄|光|暗))?\s*(lv(?<lvStr>\d+))?", RegexOptions.IgnoreCase | RegexOptions.Compiled)]
     public async Task GenerateAvatar(CqGroupMessagePostContext context, string rarity, string plus, string numberStr, string elementStr, string? lvStr)
     {
         if (plus == "+" && rarity.Equals("n", StringComparison.OrdinalIgnoreCase)) return;
@@ -670,7 +670,7 @@ public partial class MementoMoriQueryPlugin : CqMessageMatchPostPlugin
         }
     }
 
-    [CqMessageMatch(@"^/更新主数据$")]
+    [CqMessageMatch(@"^/更新主数据$", RegexOptions.IgnoreCase | RegexOptions.Compiled)]
     public async Task UpdateMasterData(CqGroupMessagePostContext context)
     {
         if (!IsGroupAllowed(context)) return;
