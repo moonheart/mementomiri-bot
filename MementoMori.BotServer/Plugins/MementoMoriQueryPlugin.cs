@@ -17,6 +17,8 @@ using MementoMori.Option;
 using MementoMori.Ortega;
 using MementoMori.Ortega.Share;
 using MementoMori.Ortega.Share.Data.ApiInterface.Notice;
+using MementoMori.Ortega.Share.Data.Gacha;
+using MementoMori.Ortega.Share.Data.Item;
 using MementoMori.Ortega.Share.Data.Notice;
 using MementoMori.Ortega.Share.Enums;
 using MementoMori.Ortega.Share.Master.Data;
@@ -39,14 +41,15 @@ public partial class MementoMoriQueryPlugin : CqMessageMatchPostPlugin
     private readonly LiteDbAccessor _dbAccessor;
     private readonly IHttpClientFactory _httpClientFactory;
     private readonly ImageUtil _imageUtil;
-    private readonly SkillGenerator skillGenerator;
+    private readonly SkillGenerator _skillGenerator;
+    private readonly GachaGenerator _gachaGenerator;
 
     [AutoPostConstruct]
     public void MementoMoriQueryPlugin1()
     {
         _mentemoriIcu = RestService.For<IMentemoriIcu>(_botOptions.Value.MentemoriIcuUri);
-        _ = AutoNotice();
-        _ = AutoDmmVersionCheck();
+        // _ = AutoNotice();
+        // _ = AutoDmmVersionCheck();
         // _networkManager.MoriHttpClientHandler.WhenAnyValue(d => d.OrtegaMasterVersion).Subscribe(NotifyNewMasterVersion);
         // _networkManager.MoriHttpClientHandler.WhenAnyValue(d => d.OrtegaAssetVersion).Subscribe(NotifyNewAssetVersion);
     }
@@ -211,6 +214,7 @@ public partial class MementoMoriQueryPlugin : CqMessageMatchPostPlugin
         msg.AppendLine("/(战力|等级|主线|塔|竞技场)排名 (日|韩|亚|美|欧|国际)1 (示例 /战力排名 日10)");
         msg.AppendLine("/公告 [ID] (示例 /公告 123 ，/公告)");
         msg.AppendLine("/头像 [稀有度] [元素] [等级] [@xxx](/头像 lr+7 光 lv333 @xxx)");
+        msg.AppendLine("/抽卡 (列表|up1|命运1|白金)(/抽卡up1)");
         await _sessionAccessor.Session.SendGroupMessageAsync(context.GroupId, new CqMessage(msg.ToString()));
     }
 
@@ -238,7 +242,7 @@ public partial class MementoMoriQueryPlugin : CqMessageMatchPostPlugin
         _logger.LogInformation($"{nameof(QueryCharacterSkills)} {idStr}");
         var id = long.Parse(idStr);
 
-        if (skillGenerator.TryGenerate(id, out var image, out var err))
+        if (_skillGenerator.TryGenerate(id, out var image, out var err))
         {
             var cqImageMsg = CqImageMsg.FromBytes(image);
             await _sessionAccessor.Session.SendGroupMessageAsync(context.GroupId, new CqMessage(cqImageMsg));
@@ -667,6 +671,264 @@ public partial class MementoMoriQueryPlugin : CqMessageMatchPostPlugin
         catch (Exception e)
         {
             Console.WriteLine(e);
+        }
+    }
+
+    [CqMessageMatch(@"/抽卡\s*(?<name>列表|UP|命运|白金)(?<indexStr>\d)?", RegexOptions.IgnoreCase | RegexOptions.Compiled)]
+    public async Task DrawCard(CqGroupMessagePostContext context, string name, string indexStr)
+    {
+        if (!IsGroupAllowed(context)) return;
+        _logger.LogInformation($"{nameof(DrawCard)} {name}");
+
+        if (name == "列表")
+        {
+            var msg = new StringBuilder();
+            List<(string name, string character)> upList = [];
+            List<string> denisty = [];
+            foreach (var gachaCaseUiMb in GetUpList())
+            {
+                var gachaName = TextResourceTable.Get(gachaCaseUiMb.NameKey);
+                if (gachaCaseUiMb.PickUpCharacterId > 0)
+                {
+                    var characterName = CharacterTable.GetCharacterName(gachaCaseUiMb.PickUpCharacterId);
+                    upList.Add((gachaName, characterName));
+                    denisty.Add(characterName);
+                }
+            }
+
+            for (var i = 0; i < upList.Count; i++) msg.AppendLine($"up{i + 1}: {upList[i].name} - {upList[i].character}");
+            for (var i = 0; i < denisty.Count; i++) msg.AppendLine($"命运{i + 1}: {denisty[i]}");
+            List<string> otherList = ["白金"];
+            foreach (var other in otherList) msg.AppendLine($"{other}");
+            await _sessionAccessor.Session.SendGroupMessageAsync(context.GroupId, new CqMessage(msg.ToString()));
+        }
+        else if (name.ToLower() == "up" && int.TryParse(indexStr, out var index1) && index1 > 0)
+        {
+            var upList = GetUpList();
+            if (index1 > upList.Count)
+            {
+                await _sessionAccessor.Session.SendGroupMessageAsync(context.GroupId, new CqMessage("未找到UP"));
+                return;
+            }
+
+            List<GachaItemRate> items = [];
+            var nCharacterMbs = CharacterTable.GetArray().Where(d => d.RarityFlags == CharacterRarityFlags.N).ToList(); // N 角色
+            var nRarity = 0.5177d / nCharacterMbs.Count;
+            AddCharacterItems(nCharacterMbs, items, nRarity, CharacterRarityFlags.N);
+
+            var rCharacterMbs = CharacterTable.GetArray().Where(d => d.RarityFlags == CharacterRarityFlags.R).ToList(); // R 角色
+            var rRarity = 0.4377d / rCharacterMbs.Count;
+            AddCharacterItems(rCharacterMbs, items, rRarity, CharacterRarityFlags.R);
+
+            List<CharacterMB> upCharacterMbs = [CharacterTable.GetById(upList[index1].PickUpCharacterId)]; // 1 个 UP
+            var upRate = 0.0137d / upCharacterMbs.Count;
+            AddCharacterItems(upCharacterMbs, items, upRate, CharacterRarityFlags.SR);
+
+            HashSet<long> srNormalCharacterIds = [5, 6, 7, 8, 10, 15, 16, 17, 18, 20, 25, 26, 27, 28, 29, 35, 36, 37, 38, 39]; // 20 个常驻 SR
+            var srNormalCharacterMbs = CharacterTable.GetArray().Where(d => srNormalCharacterIds.Contains(d.Id)).ToList();
+            var srNormalRate = 0.0295d / srNormalCharacterMbs.Count;
+            AddCharacterItems(srNormalCharacterMbs, items, srNormalRate, CharacterRarityFlags.SR);
+
+            HashSet<long> srLightDarkCharacterIds = [41, 46]; // 2 个常驻光暗 SR
+            var srLightDarkCharacterMbs = CharacterTable.GetArray().Where(d => srLightDarkCharacterIds.Contains(d.Id)).ToList();
+            var srLightDarkRate = 0.0014d / srLightDarkCharacterMbs.Count;
+            AddCharacterItems(srLightDarkCharacterMbs, items, srLightDarkRate, CharacterRarityFlags.SR);
+
+            var image = await _gachaGenerator.Generate(items);
+            var cqImageMsg = CqImageMsg.FromBytes(image);
+            await _sessionAccessor.Session.SendGroupMessageAsync(context.GroupId, new CqMessage(cqImageMsg));
+        }
+        else if (name.ToLower() == "命运" && int.TryParse(indexStr, out var index2) && index2 > 0)
+        {
+            List<GachaItemRate> items = [];
+            var upList = GetUpList();
+            if (index2 > upList.Count)
+            {
+                await _sessionAccessor.Session.SendGroupMessageAsync(context.GroupId, new CqMessage("未找到UP"));
+                return;
+            }
+
+            List<CharacterMB> upCharacterMbs = [CharacterTable.GetById(upList[index2].PickUpCharacterId)]; // 1 个 UP
+            var upRate = 0.02171d / upCharacterMbs.Count;
+            AddCharacterItems(upCharacterMbs, items, upRate, CharacterRarityFlags.SR);
+
+            List<GachaItemRate> otherItems =
+            [
+                new GachaItemRate()
+                {
+                    CharacterRarityFlags = CharacterRarityFlags.None, LotteryRate = 0.0001, Item = new UserItem() {ItemType = ItemType.CurrencyFree, ItemId = 1, ItemCount = 3000}
+                }, // 钻石 30000 None
+                new GachaItemRate()
+                {
+                    CharacterRarityFlags = CharacterRarityFlags.R, LotteryRate = 0.0281, Item = new UserItem() {ItemType = ItemType.EquipmentReinforcementItem, ItemId = 1, ItemCount = 300}
+                }, // 强化水 300 R
+                new GachaItemRate()
+                {
+                    CharacterRarityFlags = CharacterRarityFlags.R, LotteryRate = 0.0281, Item = new UserItem() {ItemType = ItemType.EquipmentReinforcementItem, ItemId = 1, ItemCount = 200}
+                }, // 强化水 200 R
+                new GachaItemRate()
+                {
+                    CharacterRarityFlags = CharacterRarityFlags.R, LotteryRate = 0.03565, Item = new UserItem() {ItemType = ItemType.EquipmentReinforcementItem, ItemId = 1, ItemCount = 100}
+                }, // 强化水 100 R
+                new GachaItemRate()
+                {
+                    CharacterRarityFlags = CharacterRarityFlags.SR, LotteryRate = 0.015, Item = new UserItem() {ItemType = ItemType.EquipmentReinforcementItem, ItemId = 2, ItemCount = 4}
+                }, // 强化秘药 4 SR
+                new GachaItemRate()
+                {
+                    CharacterRarityFlags = CharacterRarityFlags.SR, LotteryRate = 0.03, Item = new UserItem() {ItemType = ItemType.EquipmentReinforcementItem, ItemId = 2, ItemCount = 2}
+                }, // 强化秘药 2 SR
+                new GachaItemRate()
+                {
+                    CharacterRarityFlags = CharacterRarityFlags.SR, LotteryRate = 0.0936, Item = new UserItem() {ItemType = ItemType.QuestQuickTicket, ItemId = 3, ItemCount = 5}
+                }, // 金币(6小时) 5 SR
+                new GachaItemRate()
+                {
+                    CharacterRarityFlags = CharacterRarityFlags.SR, LotteryRate = 0.0936, Item = new UserItem() {ItemType = ItemType.QuestQuickTicket, ItemId = 8, ItemCount = 2}
+                }, // 经验珠(6小时) 2
+                new GachaItemRate()
+                {
+                    CharacterRarityFlags = CharacterRarityFlags.R, LotteryRate = 0.0936, Item = new UserItem() {ItemType = ItemType.QuestQuickTicket, ItemId = 12, ItemCount = 5}
+                }, // 潜能宝珠(2小时) 5
+                new GachaItemRate()
+                {
+                    CharacterRarityFlags = CharacterRarityFlags.SSR, LotteryRate = 0.045, Item = new UserItem() {ItemType = ItemType.QuestQuickTicket, ItemId = 5, ItemCount = 2}
+                }, // 金币(24小时) 2
+                new GachaItemRate()
+                {
+                    CharacterRarityFlags = CharacterRarityFlags.SSR, LotteryRate = 0.045, Item = new UserItem() {ItemType = ItemType.QuestQuickTicket, ItemId = 10, ItemCount = 1}
+                }, // 经验珠(24小时) 1
+                new GachaItemRate()
+                {
+                    CharacterRarityFlags = CharacterRarityFlags.SR, LotteryRate = 0.045, Item = new UserItem() {ItemType = ItemType.QuestQuickTicket, ItemId = 14, ItemCount = 2}
+                }, // 潜能宝珠(8小时) 2
+                new GachaItemRate()
+                {
+                    CharacterRarityFlags = CharacterRarityFlags.R, LotteryRate = 0.0225, Item = new UserItem() {ItemType = ItemType.TreasureChest, ItemId = 17, ItemCount = 1}
+                }, // 魔女的来信(R 蓝) 1
+                new GachaItemRate()
+                {
+                    CharacterRarityFlags = CharacterRarityFlags.R, LotteryRate = 0.0225, Item = new UserItem() {ItemType = ItemType.TreasureChest, ItemId = 18, ItemCount = 1}
+                }, // 魔女的来信(R 红) 1
+                new GachaItemRate()
+                {
+                    CharacterRarityFlags = CharacterRarityFlags.R, LotteryRate = 0.0225, Item = new UserItem() {ItemType = ItemType.TreasureChest, ItemId = 19, ItemCount = 1}
+                }, // 魔女的来信(R 绿) 1
+                new GachaItemRate()
+                {
+                    CharacterRarityFlags = CharacterRarityFlags.R, LotteryRate = 0.0225, Item = new UserItem() {ItemType = ItemType.TreasureChest, ItemId = 20, ItemCount = 1}
+                }, // 魔女的来信(R 黄) 1
+                new GachaItemRate()
+                {
+                    CharacterRarityFlags = CharacterRarityFlags.SR, LotteryRate = 0.008, Item = new UserItem() {ItemType = ItemType.TreasureChest, ItemId = 21, ItemCount = 1}
+                }, // 魔女的来信(SR 蓝) 1
+                new GachaItemRate()
+                {
+                    CharacterRarityFlags = CharacterRarityFlags.SR, LotteryRate = 0.008, Item = new UserItem() {ItemType = ItemType.TreasureChest, ItemId = 22, ItemCount = 1}
+                }, // 魔女的来信(SR 红) 1
+                new GachaItemRate()
+                {
+                    CharacterRarityFlags = CharacterRarityFlags.SR, LotteryRate = 0.008, Item = new UserItem() {ItemType = ItemType.TreasureChest, ItemId = 23, ItemCount = 1}
+                }, // 魔女的来信(SR 绿) 1
+                new GachaItemRate()
+                {
+                    CharacterRarityFlags = CharacterRarityFlags.SR, LotteryRate = 0.008, Item = new UserItem() {ItemType = ItemType.TreasureChest, ItemId = 24, ItemCount = 1}
+                }, // 魔女的来信(SR 黄) 1
+                new GachaItemRate()
+                {
+                    CharacterRarityFlags = CharacterRarityFlags.SR, LotteryRate = 0.02, Item = new UserItem() {ItemType = ItemType.MatchlessSacredTreasureExpItem, ItemId = 1, ItemCount = 1}
+                }, // 魔装香油 1
+                new GachaItemRate()
+                {
+                    CharacterRarityFlags = CharacterRarityFlags.SR, LotteryRate = 0.0728, Item = new UserItem() {ItemType = ItemType.TreasureChest, ItemId = 13, ItemCount = 1}
+                }, // 圣德芬的卷轴 1
+                new GachaItemRate()
+                {
+                    CharacterRarityFlags = CharacterRarityFlags.SR, LotteryRate = 0.0728, Item = new UserItem() {ItemType = ItemType.TreasureChest, ItemId = 14, ItemCount = 1}
+                }, // 圣德芬的魔书 1
+                new GachaItemRate()
+                {
+                    CharacterRarityFlags = CharacterRarityFlags.SSR, LotteryRate = 0.0306, Item = new UserItem() {ItemType = ItemType.TreasureChest, ItemId = 15, ItemCount = 1}
+                }, // 亚斯塔绿的卷轴 1
+                new GachaItemRate()
+                {
+                    CharacterRarityFlags = CharacterRarityFlags.SSR, LotteryRate = 0.0306, Item = new UserItem() {ItemType = ItemType.TreasureChest, ItemId = 16, ItemCount = 1}
+                }, // 亚斯塔绿的魔书 1
+                new GachaItemRate()
+                {
+                    CharacterRarityFlags = CharacterRarityFlags.SR, LotteryRate = 0.01917, Item = new UserItem() {ItemType = ItemType.BossChallengeTicket, ItemId = 1, ItemCount = 1}
+                }, // 首领挑战券 2
+                new GachaItemRate()
+                {
+                    CharacterRarityFlags = CharacterRarityFlags.SR, LotteryRate = 0.01917, Item = new UserItem() {ItemType = ItemType.TowerBattleTicket, ItemId = 1, ItemCount = 1}
+                }, // 无穷之塔挑战券 2
+                new GachaItemRate()
+                {
+                    CharacterRarityFlags = CharacterRarityFlags.UR, LotteryRate = 0.03836, Item = new UserItem() {ItemType = ItemType.ExchangePlaceItem, ItemId = 1, ItemCount = 1}
+                }, // 魔水晶 1
+            ];
+            items.AddRange(otherItems);
+            
+            var image = await _gachaGenerator.Generate(items);
+            var cqImageMsg = CqImageMsg.FromBytes(image);
+            await _sessionAccessor.Session.SendGroupMessageAsync(context.GroupId, new CqMessage(cqImageMsg));
+        }
+        else if (name.ToLower() == "白金")
+        {
+            List<GachaItemRate> items = [];
+            
+            var nCharacterMbs = CharacterTable.GetArray().Where(d => d.RarityFlags == CharacterRarityFlags.N).ToList(); // N 角色
+            var nRarity = 0.5177d / nCharacterMbs.Count;
+            AddCharacterItems(nCharacterMbs, items, nRarity, CharacterRarityFlags.N);
+            
+            var rCharacterMbs = CharacterTable.GetArray().Where(d => d.RarityFlags == CharacterRarityFlags.R).ToList(); // R 角色
+            var rRarity = 0.4377d / rCharacterMbs.Count;
+            AddCharacterItems(rCharacterMbs, items, rRarity, CharacterRarityFlags.R);
+
+            HashSet<long> srNormalCharacterIds = [5, 6, 7, 8, 10, 15, 16, 17, 18, 20, 25, 26, 27, 28, 29, 35, 36, 37, 38, 39]; // 20 个常驻 SR
+            var srNormalCharacterMbs = CharacterTable.GetArray().Where(d => srNormalCharacterIds.Contains(d.Id)).ToList();
+            var srNormalRate = 0.0426d / srNormalCharacterMbs.Count;
+            AddCharacterItems(srNormalCharacterMbs, items, srNormalRate, CharacterRarityFlags.SR);
+
+            HashSet<long> srLightDarkCharacterIds = [41, 46]; // 2 个常驻光暗 SR
+            var srLightDarkCharacterMbs = CharacterTable.GetArray().Where(d => srLightDarkCharacterIds.Contains(d.Id)).ToList();
+            var srLightDarkRate = 0.002d / srLightDarkCharacterMbs.Count;
+            AddCharacterItems(srLightDarkCharacterMbs, items, srLightDarkRate, CharacterRarityFlags.SR);
+            
+            var image = await _gachaGenerator.Generate(items);
+            var cqImageMsg = CqImageMsg.FromBytes(image);
+            await _sessionAccessor.Session.SendGroupMessageAsync(context.GroupId, new CqMessage(cqImageMsg));
+        }
+        List<GachaCaseUiMB> GetUpList()
+        {
+            List<GachaCaseUiMB> res = [];
+            var now = DateTimeOffset.Now;
+            foreach (var gachaCaseMb in GachaCaseTable.GetArray())
+            {
+                var startTime = new DateTimeOffset(DateTime.Parse(gachaCaseMb.StartTimeFixJST), TimeSpan.FromHours(9));
+                var endTime = new DateTimeOffset(DateTime.Parse(gachaCaseMb.EndTimeFixJST), TimeSpan.FromHours(9));
+                if (now < startTime || now > endTime) continue;
+                var gachaCaseUiMb = GachaCaseUiTable.GetById(gachaCaseMb.GachaCaseUiId);
+                if (gachaCaseUiMb.PickUpCharacterId > 0)
+                {
+                    res.Add(gachaCaseUiMb);
+                }
+            }
+
+            return res;
+        }
+
+        void AddCharacterItems(List<CharacterMB> nCharacterMbs, List<GachaItemRate> items, double nRarity, CharacterRarityFlags rarityFlags)
+        {
+            foreach (var characterMb in nCharacterMbs)
+            {
+                items.Add(new()
+                {
+                    Item = new UserItem() {ItemType = ItemType.Character, ItemCount = 1, ItemId = characterMb.Id},
+                    LotteryRate = nRarity,
+                    CharacterRarityFlags = rarityFlags,
+                });
+            }
         }
     }
 

@@ -4,7 +4,11 @@ using AutoCtor;
 using HtmlConverter.Configurations;
 using HtmlConverter.Options;
 using MementoMori.Ortega.Common;
+using MementoMori.Ortega.Share;
+using MementoMori.Ortega.Share.Data.Gacha;
+using MementoMori.Ortega.Share.Data.Item;
 using MementoMori.Ortega.Share.Enums;
+using MementoMori.Ortega.Share.Master.Table;
 using SkiaSharp;
 
 namespace MementoMori.BotServer.Utils;
@@ -14,6 +18,7 @@ namespace MementoMori.BotServer.Utils;
 public partial class ImageUtil
 {
     private readonly IHttpClientFactory _httpClientFactory;
+    const string assetsUrl = "https://list.moonheart.dev/d/public/mmtm";
 
     public byte[] HtmlToImage(string html, int? width = 600)
     {
@@ -49,7 +54,6 @@ public partial class ImageUtil
 
     public async Task<byte[]> BuildAvatar(long qqNumber, CharacterRarityFlags rarityFlags, int lv, ElementType elementType)
     {
-        const string assetsUrl = "https://list.moonheart.dev/d/public/mmtm";
         var avatarUrl = $"https://q1.qlogo.cn/g?b=qq&nk={qqNumber}&s=640";
         var avatar = await DownloadImage(avatarUrl, $"{qqNumber}.png", false);
         var border = rarityFlags >= CharacterRarityFlags.LR
@@ -175,5 +179,113 @@ public partial class ImageUtil
         // 右
         canvas.DrawImage(borderImage, new SKRect(imageWidth - right, top, imageWidth, imageHeight - bottom),
             new SKRect(destination.Right - right, destination.Top + top, destination.Right, destination.Bottom - bottom), skPaint);
+    }
+
+    public static byte[] BuildGachaResultItem(SKImage? item, SKImage? background, SKImage? border, SKColorFilter borderFilter, SKImage? element, long count, int? secondaryCount = null,
+        SKImage? secondaryBackground = null, bool useNinePatch = true)
+    {
+        using var skBitmap = new SKBitmap(144, 144);
+        using var skCanvas = new SKCanvas(skBitmap);
+
+        skCanvas.DrawImage(background, new SKRect(0, 0, 144, 144));
+        skCanvas.DrawImage(item, new SKRect(8, 8, 136, 136));
+        if (secondaryBackground != null) skCanvas.DrawImage(secondaryBackground, new SKRect(6, 6, 70, 70));
+        if (useNinePatch)
+        {
+            DrawNinePatch(skCanvas, border, borderFilter, new SKRect(0, 0, 144, 144), 26, 26, 26, 26);
+        }
+        else
+        {
+            skCanvas.DrawImage(border, new SKRect(0, 0, 144, 144));
+        }
+        if (element != null) skCanvas.DrawImage(element, new SKRect(8, 8, 40, 40));
+
+        var skPaint = new SKPaint(new SKFont(SKTypeface.Default, 20)) {Color = SKColor.Parse("#FFFFFF"), Style = SKPaintStyle.StrokeAndFill, StrokeWidth = 1};
+        var shadowColor = SKColor.Parse("#FF000000");
+        skPaint.ImageFilter = SKImageFilter.CreateDropShadow(0, 0, 5, 5, shadowColor);
+        skCanvas.DrawText($"{count}".PadLeft(5, ' '), new SKPoint(90, 122), skPaint);
+        if (secondaryCount != null) skCanvas.DrawText($"{secondaryCount}h", new SKPoint(18, 35), skPaint);
+
+        skCanvas.Flush();
+        using var ms = new MemoryStream();
+        skBitmap.Encode(SKEncodedImageFormat.Png, 100).SaveTo(ms);
+        return ms.ToArray();
+    }
+
+    public async Task<SKImage?> GetItemImage(IUserItem userItem)
+    {
+        switch (userItem.ItemType)
+        {
+            case ItemType.Character:
+                return await DownloadImage($"{assetsUrl}/AddressableConvertAssets/CharacterIcon/CHR_{userItem.ItemId:000000}/CHR_{userItem.ItemId:000000}_00_s.png",
+                    $"CHR_{userItem.ItemId:000000}_00_s.png");
+            case ItemType.CurrencyFree:
+            case ItemType.EquipmentReinforcementItem:
+            case ItemType.QuestQuickTicket:
+            case ItemType.MatchlessSacredTreasureExpItem:
+            case ItemType.BossChallengeTicket:
+            case ItemType.TowerBattleTicket:
+            case ItemType.ExchangePlaceItem:
+                var iconId1 = Masters.ItemTable.GetByItemTypeAndItemId(userItem.ItemType, userItem.ItemId).IconId;
+                return await DownloadImage($"{assetsUrl}/AddressableConvertAssets/Icon/Item/Item_{iconId1:0000}.png", $"Item_{iconId1:0000}.png");
+            case ItemType.TreasureChest:
+                var iconId2 = Masters.TreasureChestTable.GetById(userItem.ItemId).IconId;
+                return await DownloadImage($"{assetsUrl}/AddressableConvertAssets/Icon/Item/Item_{iconId2:0000}.png", $"Item_{iconId2:0000}.png");
+            default:
+                return null;
+        }
+    }
+
+    public async Task<byte[]> GenerateGachaResultImage(List<GachaResultItem> result)
+    {
+        // backgound image: 1652x1080
+        var gachaBackground = await DownloadImage($"{assetsUrl}/AddressableLocalAssets/Prefabs/Gacha/Background_GachaResult.png", "Background_GachaResult.png");
+        var logo = await DownloadImage($"{assetsUrl}/AddressableLocalAssets/UI/TitleLogo/image_title_logo_Black_jaJP.png", "image_title_logo_Black_jaJP.png");
+
+        var images = new List<SKImage>();
+        foreach (var item in result)
+        {
+            var itemImage = await GetItemImage(item);
+            SKImage? element = null;
+            if (item.ItemType == ItemType.Character)
+            {
+                var elementType = Masters.CharacterTable.GetById(item.ItemId).ElementType;
+                element = await DownloadImage($"{assetsUrl}/AddressableLocalAssets/Atlas/icon_element_{(int) elementType}.png", $"icon_element_{(int) elementType}.png");
+            }
+
+            var gachaBorder = item.CharacterRarityFlags == CharacterRarityFlags.None
+                ? await DownloadImage($"{assetsUrl}/AddressableLocalAssets/Atlas/frame_common_watercolor.png", "frame_common_watercolor.png")
+                : await DownloadImage($"{assetsUrl}/AddressableLocalAssets/Atlas/frame_common_slice.png", "frame_common_slice.png");
+            var borderColor = ClientConst.Icon.CharacterFrameColorDictionary[item.CharacterRarityFlags > CharacterRarityFlags.LR ? CharacterRarityFlags.LR : item.CharacterRarityFlags];
+            var borderFilter = SKColorFilter.CreateColorMatrix([
+                borderColor.R / 255.0f, 0, 0, 0, 0,
+                0, borderColor.G / 255.0f, 0, 0, 0,
+                0, 0, borderColor.B / 255.0f, 0, 0,
+                0, 0, 0, 1, 0
+            ]);
+            var itemBackground = await DownloadImage($"{assetsUrl}/AddressableLocalAssets/Atlas/plate_character.png", "plate_character.png");
+            int? secondaryCount = item.ItemType == ItemType.QuestQuickTicket ? Masters.ItemTable.GetByItemTypeAndItemId(item.ItemType, item.ItemId).SecondaryFrameNum : null;
+            var secondaryBackground = item.ItemType == ItemType.QuestQuickTicket ? await DownloadImage($"{assetsUrl}/AddressableLocalAssets/Atlas/base_number_06.png", $"base_number_06.png") : null;
+            var resultItem = BuildGachaResultItem(itemImage, itemBackground, gachaBorder, borderFilter, element, item.ItemCount, secondaryCount, secondaryBackground, item.CharacterRarityFlags != CharacterRarityFlags.None);
+            images.Add(SKImage.FromEncodedData(resultItem));
+        }
+
+        using var skBitmap = new SKBitmap(1652, 780);
+        using var skCanvas = new SKCanvas(skBitmap);
+        skCanvas.DrawImage(gachaBackground, new SKRect(0, 150, 1652, 780), new SKRect(0, 0, 1652, 780));
+        for (var i = 0; i < images.Count; i++)
+        {
+            var x = 300 + i % 5 * 230;
+            var y = 150 + i / 5 * 230;
+            skCanvas.DrawImage(images[i], new SKRect(x, y, x + 144, y + 144));
+        }
+
+        // logo 在左下角, 420x180
+        skCanvas.DrawImage(logo, new SKRect(100, 550, 520, 730));
+
+        skCanvas.Flush();
+        using var ms = new MemoryStream();
+        skBitmap.Encode(SKEncodedImageFormat.Png, 100).SaveTo(ms);
+        return ms.ToArray();
     }
 }
