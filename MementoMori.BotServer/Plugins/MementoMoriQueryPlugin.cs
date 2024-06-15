@@ -9,6 +9,7 @@ using HtmlConverter.Configurations;
 using HtmlConverter.Options;
 using LiteDB;
 using MementoMori.BotServer.Api;
+using MementoMori.BotServer.MmmrGenerators;
 using MementoMori.BotServer.Options;
 using MementoMori.BotServer.Utils;
 using MementoMori.Extensions;
@@ -38,6 +39,7 @@ public partial class MementoMoriQueryPlugin : CqMessageMatchPostPlugin
     private readonly LiteDbAccessor _dbAccessor;
     private readonly IHttpClientFactory _httpClientFactory;
     private readonly ImageUtil _imageUtil;
+    private readonly SkillGenerator skillGenerator;
 
     [AutoPostConstruct]
     public void MementoMoriQueryPlugin1()
@@ -234,87 +236,16 @@ public partial class MementoMoriQueryPlugin : CqMessageMatchPostPlugin
     {
         if (!IsGroupAllowed(context)) return;
         _logger.LogInformation($"{nameof(QueryCharacterSkills)} {idStr}");
-        var id = long.Parse(idStr);
-        var characterMb = CharacterTable.GetById(id);
-        if (characterMb == null)
+        var id = long.Parse(idStr);   
+
+        if (skillGenerator.TryGenerate(id, out var image, out var err))
         {
-            await _sessionAccessor.Session.SendGroupMessageAsync(context.GroupId, new CqMessage("未查询到此角色"));
-            return;
+            var cqImageMsg = CqImageMsg.FromBytes(image);
+            await _sessionAccessor.Session.SendGroupMessageAsync(context.GroupId, new CqMessage(cqImageMsg));
         }
-
-        var msg = new StringBuilder(tableStyle);
-        var chaName = CharacterTable.GetCharacterName(characterMb.Id);
-        msg.AppendLine($"<h1>{chaName}的技能</h1><table>");
-        foreach (var skillId in characterMb.ActiveSkillIds)
+        else
         {
-            var skillMb = ActiveSkillTable.GetById(skillId);
-            var name = TextResourceTable.Get(skillMb.NameKey);
-            msg.AppendFormat($"<tr><th width=\"150px\">{name}</th><th>冷却 {skillMb.SkillMaxCoolTime}</th></tr>");
-            foreach (var skillInfo in skillMb.ActiveSkillInfos)
-            {
-                var description = TextResourceTable.Get(skillInfo.DescriptionKey);
-                if (skillInfo.EquipmentRarityFlags != 0 || string.IsNullOrEmpty(description))
-                {
-                    continue;
-                }
-
-                msg.AppendFormat($"<tr><td>{GetSkillDesc(skillInfo.OrderNumber, skillInfo.CharacterLevel, skillInfo.EquipmentRarityFlags)}</td><td>{description}</td></tr>");
-            }
-        }
-
-        foreach (var skillId in characterMb.PassiveSkillIds)
-        {
-            var skillMb = PassiveSkillTable.GetById(skillId);
-            var name = TextResourceTable.Get(skillMb.NameKey);
-            msg.AppendFormat($"<tr><th>{name}</th><th></th></tr>");
-            foreach (var skillInfo in skillMb.PassiveSkillInfos)
-            {
-                var description = TextResourceTable.Get(skillInfo.DescriptionKey);
-                if (skillInfo.EquipmentRarityFlags != 0 || string.IsNullOrEmpty(description))
-                {
-                    continue;
-                }
-
-                msg.AppendFormat($"<tr><td>{GetSkillDesc(skillInfo.OrderNumber, skillInfo.CharacterLevel, skillInfo.EquipmentRarityFlags)}</td><td>{description}</td></tr>");
-            }
-        }
-
-        var equipmentMbs = EquipmentTable.GetArray().Where(d => d.Category == EquipmentCategory.Exclusive && (d.RarityFlags & EquipmentRarityFlags.SSR) != 0 && d.EquipmentLv == 180).ToList();
-        foreach (var equipmentMb in equipmentMbs)
-        {
-            if (EquipmentExclusiveEffectTable.GetById(equipmentMb.ExclusiveEffectId).CharacterId == id)
-            {
-                msg.AppendFormat($"<tr><th>专属装备</th><th></th></tr>");
-                var descriptionMb = EquipmentExclusiveSkillDescriptionTable.GetById(equipmentMb.EquipmentExclusiveSkillDescriptionId);
-                msg.AppendFormat(@$"<tr><td>Ex.1</td><td>{TextResourceTable.Get(descriptionMb.Description1Key)}</td></tr>");
-                msg.AppendFormat(@$"<tr><td>Ex.2</td><td>{TextResourceTable.Get(descriptionMb.Description2Key)}</td></tr>");
-                msg.AppendFormat(@$"<tr><td>Ex.3</td><td>{TextResourceTable.Get(descriptionMb.Description3Key)}</td></tr>");
-                break;
-            }
-        }
-
-        msg.AppendLine("</table>");
-
-        var bytes = _imageUtil.HtmlToImage(msg.ToString(), 1200);
-
-        var cqImageMsg = CqImageMsg.FromBytes(bytes);
-        await _sessionAccessor.Session.SendGroupMessageAsync(context.GroupId, new CqMessage(cqImageMsg));
-
-        string GetSkillDesc(int orderNumber, long characterLevel, EquipmentRarityFlags equipmentRarityFlags)
-        {
-            if (equipmentRarityFlags == 0)
-            {
-                return $"Lv.{orderNumber}";
-            }
-
-            var lvl = equipmentRarityFlags switch
-            {
-                EquipmentRarityFlags.SSR => "Ex.1",
-                EquipmentRarityFlags.UR => "Ex.2",
-                EquipmentRarityFlags.LR => "Ex.3",
-                _ => "未知"
-            };
-            return $"{lvl}";
+            await _sessionAccessor.Session.SendGroupMessageAsync(context.GroupId, new CqMessage(err));
         }
     }
 
@@ -709,7 +640,7 @@ public partial class MementoMoriQueryPlugin : CqMessageMatchPostPlugin
             ("n", "", _) => CharacterRarityFlags.N,
             _ => CharacterRarityFlags.N
         };
-        
+
         var elementType = elementStr switch
         {
             "蓝" => ElementType.Blue,
@@ -729,6 +660,7 @@ public partial class MementoMoriQueryPlugin : CqMessageMatchPostPlugin
             {
                 return;
             }
+
             var cqImageMsg = CqImageMsg.FromBytes(bytes);
             await _sessionAccessor.Session.SendGroupMessageAsync(context.GroupId, new CqMessage(cqImageMsg));
         }
