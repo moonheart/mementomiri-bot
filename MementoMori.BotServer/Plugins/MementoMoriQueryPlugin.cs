@@ -5,9 +5,6 @@ using EleCho.GoCqHttpSdk;
 using EleCho.GoCqHttpSdk.Message;
 using EleCho.GoCqHttpSdk.MessageMatching;
 using EleCho.GoCqHttpSdk.Post;
-using HtmlConverter.Configurations;
-using HtmlConverter.Options;
-using LiteDB;
 using MementoMori.BotServer.Api;
 using MementoMori.BotServer.MmmrGenerators;
 using MementoMori.BotServer.Options;
@@ -23,7 +20,6 @@ using MementoMori.Ortega.Share.Data.Notice;
 using MementoMori.Ortega.Share.Enums;
 using MementoMori.Ortega.Share.Master.Data;
 using Newtonsoft.Json.Linq;
-using ReactiveUI;
 using Refit;
 using static MementoMori.Ortega.Share.Masters;
 
@@ -38,7 +34,7 @@ public partial class MementoMoriQueryPlugin : CqMessageMatchPostPlugin
     private IMentemoriIcu _mentemoriIcu;
     private readonly MementoNetworkManager _networkManager;
     private readonly ILogger<MementoMoriQueryPlugin> _logger;
-    private readonly LiteDbAccessor _dbAccessor;
+    private readonly IFreeSql _fsql;
     private readonly IHttpClientFactory _httpClientFactory;
     private readonly ImageUtil _imageUtil;
     private readonly SkillGenerator _skillGenerator;
@@ -117,18 +113,15 @@ public partial class MementoMoriQueryPlugin : CqMessageMatchPostPlugin
 
             var noticeInfos = listResponse.NoticeInfoList.OrderByDescending(d => d.Id).ToList();
             var noticeToPush = new List<NoticeInfo>();
-            using (var db = _dbAccessor.GetDb())
+            foreach (var noticeInfo in noticeInfos)
             {
-                foreach (var noticeInfo in noticeInfos)
+                if (await _fsql.Select<NoticeInfo>().AnyAsync(d => d.Id == noticeInfo.Id))
                 {
-                    if (db.GetCollection<NoticeInfo>().Exists(d => d.Id == noticeInfo.Id))
-                    {
-                        continue;
-                    }
-
-                    noticeToPush.Add(noticeInfo);
-                    db.GetCollection<NoticeInfo>().Insert(noticeInfo);
+                    continue;
                 }
+
+                noticeToPush.Add(noticeInfo);
+                await _fsql.Insert(noticeInfo).ExecuteAffrowsAsync();
             }
 
             // only send latest 5
@@ -573,10 +566,9 @@ public partial class MementoMoriQueryPlugin : CqMessageMatchPostPlugin
         CqMessage msg;
         if (int.TryParse(noticeIdStr, out var noticeId))
         {
-            using var db = _dbAccessor.GetDb();
             var noticeInfo = noticeId is > 0 and <= 20
-                ? db.GetCollection<NoticeInfo>().FindAll().OrderByDescending(d => d.Id).Take(30).ToList().Where(d => d.Id % 10 != 6).Skip(noticeId - 1).FirstOrDefault()
-                : db.GetCollection<NoticeInfo>().FindById(noticeId);
+                ? (await _fsql.Select<NoticeInfo>().OrderByDescending(d => d.Id).Take(30).ToListAsync()).Where(d => d.Id % 10 != 6).Skip(noticeId - 1).FirstOrDefault()
+                : await _fsql.Select<NoticeInfo>().Where(d=>d.Id == noticeId).FirstAsync();
             if (noticeInfo == null)
             {
                 msg = new CqMessage("未找到此公告");
@@ -595,8 +587,7 @@ public partial class MementoMoriQueryPlugin : CqMessageMatchPostPlugin
         }
         else
         {
-            using var db = _dbAccessor.GetDb();
-            var noticeInfos = db.GetCollection<NoticeInfo>().Query().OrderByDescending(d => d.Id).Limit(30).ToList();
+            var noticeInfos = await _fsql.Select<NoticeInfo>().OrderByDescending(d => d.Id).Limit(30).ToListAsync();
             var list = new StringBuilder();
             for (var i = 0; i < noticeInfos.Where(d => d.Id % 10 != 6).Take(15).ToArray().Length; i++)
             {
