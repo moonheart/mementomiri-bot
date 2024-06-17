@@ -27,4 +27,4 @@ RUN dotnet publish "./MementoMori.BotServer.csproj" -c $BUILD_CONFIGURATION -o /
 FROM base AS final
 WORKDIR /app
 COPY --from=publish /app/publish .
-ENTRYPOINT ["dotnet", "MementoMori.BotServer.dll"]
+ENTRYPOINT ["dotnet", "/app/MementoMori.BotServer.dll"]

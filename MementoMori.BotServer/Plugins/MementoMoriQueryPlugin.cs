@@ -48,8 +48,8 @@ public partial class MementoMoriQueryPlugin : CqMessageMatchPostPlugin
     public void MementoMoriQueryPlugin1()
     {
         _mentemoriIcu = RestService.For<IMentemoriIcu>(_botOptions.Value.MentemoriIcuUri);
-        // _ = AutoNotice();
-        // _ = AutoDmmVersionCheck();
+        _ = AutoNotice();
+        _ = AutoDmmVersionCheck();
         // _networkManager.MoriHttpClientHandler.WhenAnyValue(d => d.OrtegaMasterVersion).Subscribe(NotifyNewMasterVersion);
         // _networkManager.MoriHttpClientHandler.WhenAnyValue(d => d.OrtegaAssetVersion).Subscribe(NotifyNewAssetVersion);
     }
