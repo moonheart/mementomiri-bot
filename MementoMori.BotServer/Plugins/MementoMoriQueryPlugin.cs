@@ -698,8 +698,8 @@ public partial class MementoMoriQueryPlugin : CqMessageMatchPostPlugin
         {
             var (image, msg) = name.ToLower() switch
             {
-                "up" when int.TryParse(indexStr, out var index1) && index1 > 0 => await _gachaGenerator.Generate(GachaType.PickUp, context.Sender.UserId, index1),
-                "命运" when int.TryParse(indexStr, out var index2) && index2 > 0 => await _gachaGenerator.Generate(GachaType.Destiny, context.Sender.UserId, index2),
+                "up" when int.TryParse(indexStr, out var index1) && index1 > 0 => await _gachaGenerator.Generate(GachaType.PickUp, context.Sender.UserId, index1 - 1),
+                "命运" when int.TryParse(indexStr, out var index2) && index2 > 0 => await _gachaGenerator.Generate(GachaType.Destiny, context.Sender.UserId, index2 - 1),
                 "白金" => await _gachaGenerator.Generate(GachaType.Platinum, context.Sender.UserId),
                 _ => ([], "")
             };
