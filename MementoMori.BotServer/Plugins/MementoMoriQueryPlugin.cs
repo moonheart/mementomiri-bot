@@ -706,7 +706,7 @@ public partial class MementoMoriQueryPlugin : CqMessageMatchPostPlugin
             if (image.Length > 0)
             {
                 var cqImageMsg = CqImageMsg.FromBytes(image);
-                await _sessionAccessor.Session.SendGroupMessageAsync(context.GroupId, new CqMessage(cqImageMsg, new CqTextMsg(msg)));
+                await _sessionAccessor.Session.SendGroupMessageAsync(context.GroupId, new CqMessage(cqImageMsg, new CqTextMsg(msg), new CqReplyMsg(context.MessageId)));
             }
         }
         catch (Exception e)
