@@ -130,7 +130,7 @@ public partial class GachaGenerator : GeneratorBase<GachaGenerator>
                     ? 0.02171d
                     : alreadyCount == 69
                         ? 1
-                        : 0.02171d + 6.9877857d * (alreadyCount + 1 - 56);
+                        : 0.02171d + 0.069877857d * (alreadyCount + 1 - 56);
                 break;
             default: return null;
         }
