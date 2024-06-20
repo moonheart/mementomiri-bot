@@ -37,16 +37,22 @@ public partial class GachaGenerator : GeneratorBase<GachaGenerator>
         var random = new Random();
         int alreadyCount = 0;
         bool isSuccess = false;
+        var userGachaInfo = await _freeSql.Select<UserGachaInfo>().Where(d => d.Id == userId).ToOneAsync();
+        if (userGachaInfo == null)
+        {
+            userGachaInfo = new UserGachaInfo() {Id = userId, PickUpCount = 0, DestinyCount = 0};
+            await _freeSql.Insert(userGachaInfo).ExecuteAffrowsAsync();
+        }
+
         for (var i = 0; i < 10; i++)
         {
-            var finalItems = items.ToList();
-
-            var userGachaInfo = await _freeSql.Select<UserGachaInfo>().Where(d => d.Id == userId).ToOneAsync();
-            if (userGachaInfo == null)
+            var finalItems = items.Select(d => new GachaItemRate()
             {
-                userGachaInfo = new UserGachaInfo() {Id = userId, PickUpCount = 0, DestinyCount = 0};
-                await _freeSql.Insert(userGachaInfo).ExecuteAffrowsAsync();
-            }
+                Item = d.Item,
+                LotteryRate = d.LotteryRate,
+                CharacterRarityFlags = d.CharacterRarityFlags,
+                AddItem = d.AddItem
+            }).ToList();
 
             alreadyCount = gachaType switch
             {
@@ -55,9 +61,14 @@ public partial class GachaGenerator : GeneratorBase<GachaGenerator>
                 _ => 0
             };
 
-            var pickUpRate = GetPickUpRate(alreadyCount, gachaType, pickUpCharacterId);
+            var (pickUpRate, decrease) = GetPickUpRate(alreadyCount, gachaType, pickUpCharacterId);
             if (pickUpRate != null)
             {
+                foreach (var gachaItemRate in finalItems)
+                {
+                    gachaItemRate.LotteryRate *= decrease;
+                }
+
                 finalItems.Add(pickUpRate);
             }
 
@@ -98,6 +109,22 @@ public partial class GachaGenerator : GeneratorBase<GachaGenerator>
                         var r = await _freeSql.Update<UserGachaInfo>(userId).Set(fieldSelector, value.Value).ExecuteAffrowsAsync();
                     }
 
+                    switch (gachaType)
+                    {
+                        case GachaType.Destiny when isSuccess:
+                            userGachaInfo.DestinyCount = 0;
+                            break;
+                        case GachaType.Destiny:
+                            userGachaInfo.DestinyCount++;
+                            break;
+                        case GachaType.PickUp when isSuccess:
+                            userGachaInfo.PickUpCount = 0;
+                            break;
+                        case GachaType.PickUp:
+                            userGachaInfo.PickUpCount++;
+                            break;
+                    }
+
                     result.Add(resultItem);
                     break;
                 }
@@ -114,10 +141,11 @@ public partial class GachaGenerator : GeneratorBase<GachaGenerator>
         return (await _imageUtil.GenerateGachaResultImage(result), message);
     }
 
-    private GachaItemRate? GetPickUpRate(int alreadyCount, GachaType gachaType, long upCharacterId)
+    private (GachaItemRate?, double decrease ) GetPickUpRate(int alreadyCount, GachaType gachaType, long upCharacterId)
     {
         var characterMb = CharacterTable.GetById(upCharacterId);
         double? rate = 0;
+        double decrease = 0;
         switch (gachaType)
         {
             case GachaType.PickUp:
@@ -131,19 +159,20 @@ public partial class GachaGenerator : GeneratorBase<GachaGenerator>
                     : alreadyCount == 69
                         ? 1
                         : 0.02171d + 0.069877857d * (alreadyCount + 1 - 56);
+                decrease = (1 - rate.Value) / (1 - 0.02171d);
                 break;
-            default: return null;
+            default: return (null, 0);
         }
 
 
         return rate == null
-            ? null
-            : new()
+            ? (null, 0)
+            : (new()
             {
                 Item = new UserItem() {ItemType = ItemType.Character, ItemCount = 1, ItemId = characterMb.Id},
                 LotteryRate = rate.Value,
                 CharacterRarityFlags = CharacterRarityFlags.SR,
-            };
+            }, decrease);
     }
 
     private List<GachaItemRate> GetPickUpItemRates()
