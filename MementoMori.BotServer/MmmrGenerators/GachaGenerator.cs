@@ -21,7 +21,7 @@ public partial class GachaGenerator : GeneratorBase<GachaGenerator>
     public async Task<(byte[] image, string message)> Generate(GachaType gachaType, long userId, int upIndex = 1)
     {
         var upList = GetUpList();
-        if (upIndex >= upList.Count) throw new Exception("未找到UP");
+        if (upIndex > upList.Count) throw new Exception("未找到UP");
 
         var pickUpCharacterId = upList[upIndex - 1].PickUpCharacterId;
 
