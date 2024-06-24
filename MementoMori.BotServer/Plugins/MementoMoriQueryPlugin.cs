@@ -189,29 +189,29 @@ public partial class MementoMoriQueryPlugin : CqMessageMatchPostPlugin
         return _botOptions.Value.OpenedGroups.Contains(context.GroupId);
     }
 
-    [CqMessageMatch("^/命令列表$", RegexOptions.IgnoreCase | RegexOptions.Compiled)]
+    [CqMessageMatch("^/(命令列表|cmds)", RegexOptions.IgnoreCase | RegexOptions.Compiled)]
     public async Task FunctionList(CqGroupMessagePostContext context)
     {
         if (!IsGroupAllowed(context)) return;
         _logger.LogInformation(nameof(FunctionList));
         var msg = new StringBuilder();
         msg.AppendLine("命令列表");
-        msg.AppendLine("/命令列表");
-        msg.AppendLine("/角色ID列表");
-        msg.AppendLine("/速度列表");
-        msg.AppendLine("/技能 角色ID (示例 /技能 1)");
-        msg.AppendLine("/角色 角色ID (示例 /角色 1)");
-        msg.AppendLine("/主线 关卡 (示例 /主线 12-28)");
-        msg.AppendLine("/(无穷|红|黄|绿|蓝)塔 关卡 (示例 /绿塔 499)");
-        msg.AppendLine("/(战力|等级|主线|塔|竞技场)排名 (日|韩|亚|美|欧|国际)1 (示例 /战力排名 日10)");
-        msg.AppendLine("/公告 [ID] (示例 /公告 123 ，/公告)");
-        msg.AppendLine("/头像 [稀有度] [元素] [等级] [@xxx](/头像 lr+7 光 lv333 @xxx)");
-        msg.AppendLine("/抽卡 (列表|up1|命运1|白金)(/抽卡up1)");
+        msg.AppendLine("/命令列表|cmds");
+        msg.AppendLine("/角色ID列表|ids");
+        msg.AppendLine("/速度列表|speed");
+        msg.AppendLine("/技能|skill 角色ID (示例 /技能 1)");
+        msg.AppendLine("/角色|cha 角色ID (示例 /角色 1)");
+        msg.AppendLine("/主线|q 关卡 (示例 /主线 12-28)");
+        msg.AppendLine("/(无穷|i|红|r|黄|y|绿|g|蓝|b)塔|t 关卡 (示例 /绿塔 499)");
+        msg.AppendLine("/(战力|bp|等级|lv|主线|q|塔|t|竞技场|pvp)排名|rank (日|jp|韩|kr|亚|as|美|us|欧|eu|国际|gl)1 (示例 /战力排名 日10)");
+        msg.AppendLine("/公告|notice [ID] (示例 /公告 123 ，/公告)");
+        msg.AppendLine("/头像|ava [稀有度] [元素|b|g|r|y|l|d] [等级] [@xxx](/头像 lr+7 光 lv333 @xxx)");
+        msg.AppendLine("/抽卡|gacha (列表|list|up1|命运|des1|白金|pla)(/抽卡up1)");
         await _sessionAccessor.Session.SendGroupMessageAsync(context.GroupId, new CqMessage(msg.ToString()));
     }
 
     // 通过 CqMessageMatch 来指定匹配规则 (例如这里非贪婪匹配两个中括号之间的任意内容, 并命名为 content 组)
-    [CqMessageMatch(@"^/角色ID列表$", RegexOptions.IgnoreCase | RegexOptions.Compiled)]
+    [CqMessageMatch(@"^/(角色ID列表|ids)", RegexOptions.IgnoreCase | RegexOptions.Compiled)]
     public async Task QueryCharacterIds(CqGroupMessagePostContext context)
     {
         if (!IsGroupAllowed(context)) return;
@@ -227,7 +227,7 @@ public partial class MementoMoriQueryPlugin : CqMessageMatchPostPlugin
         await _sessionAccessor.Session.SendGroupMessageAsync(context.GroupId, new CqMessage(msg.ToString()));
     }
 
-    [CqMessageMatch(@"^/技能\s*(?<idStr>\d+)$", RegexOptions.IgnoreCase | RegexOptions.Compiled)]
+    [CqMessageMatch(@"^/(技能|skill)\s*(?<idStr>\d+)", RegexOptions.IgnoreCase | RegexOptions.Compiled)]
     public async Task QueryCharacterSkills(CqGroupMessagePostContext context, string idStr)
     {
         if (!IsGroupAllowed(context)) return;
@@ -245,7 +245,7 @@ public partial class MementoMoriQueryPlugin : CqMessageMatchPostPlugin
         }
     }
 
-    [CqMessageMatch(@"^/速度列表$", RegexOptions.IgnoreCase | RegexOptions.Compiled)]
+    [CqMessageMatch(@"^/(速度列表|speed)", RegexOptions.IgnoreCase | RegexOptions.Compiled)]
     public async Task QuerySpeedList(CqGroupMessagePostContext context)
     {
         if (!IsGroupAllowed(context)) return;
@@ -265,7 +265,7 @@ public partial class MementoMoriQueryPlugin : CqMessageMatchPostPlugin
         await _sessionAccessor.Session.SendGroupMessageAsync(context.GroupId, new CqMessage(msg.ToString()));
     }
 
-    [CqMessageMatch(@"^/角色\s*(?<idStr>\d+)$", RegexOptions.IgnoreCase | RegexOptions.Compiled)]
+    [CqMessageMatch(@"^/(角色|cha)\s*(?<idStr>\d+)$", RegexOptions.IgnoreCase | RegexOptions.Compiled)]
     public async Task QueryCharacter(CqGroupMessagePostContext context, string idStr)
     {
         if (!IsGroupAllowed(context)) return;
@@ -316,7 +316,7 @@ public partial class MementoMoriQueryPlugin : CqMessageMatchPostPlugin
                                       </style>
                                       """;
 
-    [CqMessageMatch(@"^/主线\s*(?<quest>\d+-\d+)$", RegexOptions.IgnoreCase | RegexOptions.Compiled)]
+    [CqMessageMatch(@"^/(主线|q)\s*(?<quest>\d+-\d+)$", RegexOptions.IgnoreCase | RegexOptions.Compiled)]
     public async Task QueryMainQuerst(CqGroupMessagePostContext context, string quest)
     {
         if (!IsGroupAllowed(context)) return;
@@ -425,21 +425,28 @@ public partial class MementoMoriQueryPlugin : CqMessageMatchPostPlugin
         return $"{num}{unit[index]}";
     }
 
-    [CqMessageMatch(@"^/(?<towerTypeStr>(无穷|红|黄|金|绿|翠|蓝))塔\s*(?<quest>\d+)$", RegexOptions.IgnoreCase | RegexOptions.Compiled)]
+    [CqMessageMatch(@"^/(?<towerTypeStr>(无穷|i|红|r|黄|y|金|绿|g|翠|b|蓝))(塔|t)\s*(?<quest>\d+)$", RegexOptions.IgnoreCase | RegexOptions.Compiled)]
     public async Task QueryTowerInfo(CqGroupMessagePostContext context, string towerTypeStr, string quest)
     {
         if (!IsGroupAllowed(context)) return;
         _logger.LogInformation($"{nameof(QueryTowerInfo)} {towerTypeStr} {quest}");
 
+        var englishMap = new Dictionary<string, string>
+        {
+            {"i", "无穷"},
+            {"r", "红"},
+            {"y", "黄"},
+            {"g", "绿"},
+            {"b", "蓝"}
+        };
+
         var towerType = towerTypeStr switch
         {
-            "无穷" => TowerType.Infinite,
-            "红" => TowerType.Red,
-            "黄" => TowerType.Yellow,
-            "金" => TowerType.Yellow,
-            "绿" => TowerType.Green,
-            "翠" => TowerType.Green,
-            "蓝" => TowerType.Blue,
+            "无穷" or "i" => TowerType.Infinite,
+            "红" or "r" => TowerType.Red,
+            "黄" or "金" or "y" => TowerType.Yellow,
+            "绿" or "翠" or "g" => TowerType.Green,
+            "蓝" or "b" => TowerType.Blue,
         };
         var questId = long.Parse(quest);
 
@@ -451,7 +458,7 @@ public partial class MementoMoriQueryPlugin : CqMessageMatchPostPlugin
         }
 
         var msg = new StringBuilder(tableStyle);
-        msg.AppendLine($"<h1>{towerTypeStr}塔 {quest}</h1>");
+        msg.AppendLine($"<h1>{englishMap.GetValueOrDefault(towerTypeStr, towerTypeStr)}塔 {quest}</h1>");
         var enemies = new List<TowerBattleEnemyMB>();
         foreach (var enemyId in questMb.EnemyIds)
         {
@@ -466,21 +473,45 @@ public partial class MementoMoriQueryPlugin : CqMessageMatchPostPlugin
         await _sessionAccessor.Session.SendGroupMessageAsync(context.GroupId, new CqMessage(cqImageMsg));
     }
 
-    [CqMessageMatch(@"^/(?<rankType>战力|等级|主线|塔)排名\s*(?<server>日|韩|亚|美|欧|国际)(?<worldStr>\d+)$", RegexOptions.IgnoreCase | RegexOptions.Compiled)]
+    [CqMessageMatch(@"^/(?<rankType>战力|bp|等级|lv|主线|q|塔|t)(排名|rank)\s*(?<server>日|jp|韩|kr|亚|as|美|us|欧|eu|国际|gl)(?<worldStr>\d+)$", RegexOptions.IgnoreCase | RegexOptions.Compiled)]
     public async Task GetPlayerRanking(CqGroupMessagePostContext context, string rankType, string server, string worldStr)
     {
         if (!IsGroupAllowed(context)) return;
         _logger.LogInformation($"{nameof(GetPlayerRanking)} {rankType} {server} {worldStr}");
 
+        var serverMap = new Dictionary<string, string>
+        {
+            {"日", "日服"},
+            {"jp", "日服"},
+            {"韩", "韩服"},
+            {"kr", "韩服"},
+            {"亚", "亚服"},
+            {"as", "亚服"},
+            {"美", "美服"},
+            {"us", "美服"},
+            {"欧", "欧服"},
+            {"eu", "欧服"},
+            {"国际", "国际服"},
+            {"gl", "国际服"},
+        };
+        
+        var rankTypeMap = new Dictionary<string, string>
+        {
+            {"bp", "战力"},
+            {"lv", "等级"},
+            {"q", "主线"},
+            {"t", "塔"},
+        };
+        
         var world = int.Parse(worldStr);
         var worldId = server switch
         {
-            "日" => 1000 + world,
-            "韩" => 2000 + world,
-            "亚" => 3000 + world,
-            "美" => 4000 + world,
-            "欧" => 5000 + world,
-            "国际" => 6000 + world,
+            "日" or "jp" => 1000 + world,
+            "韩" or "kr" => 2000 + world,
+            "亚" or "as" => 3000 + world,
+            "美" or "us" => 4000 + world,
+            "欧" or "eu" => 5000 + world,
+            "国际" or "gl" => 6000 + world,
             _ => 1000 + world,
         };
 
@@ -492,21 +523,21 @@ public partial class MementoMoriQueryPlugin : CqMessageMatchPostPlugin
         }
 
         var msg = new StringBuilder(tableStyle);
-        msg.AppendLine($"<h1>{server}{world} {rankType}排名</h1>");
+        msg.AppendLine($"<h1>{serverMap.GetValueOrDefault(server, server)}{world} {rankTypeMap.GetValueOrDefault(rankType, rankType)}排名</h1>");
         var infos = rankType switch
         {
-            "战力" => playerRanking.data.rankings.bp,
-            "等级" => playerRanking.data.rankings.rank,
-            "主线" => playerRanking.data.rankings.quest,
-            "塔" => playerRanking.data.rankings.tower,
+            "战力" or "bp" => playerRanking.data.rankings.bp,
+            "等级" or "lv" => playerRanking.data.rankings.rank,
+            "主线" or "q" => playerRanking.data.rankings.quest,
+            "塔" or "t" => playerRanking.data.rankings.tower,
             _ => playerRanking.data.rankings.bp
         };
         Func<PlayerInfo, string> selector = rankType switch
         {
-            "战力" => p => p.bp.ToString("N0"),
-            "等级" => p => p.rank.ToString(),
-            "主线" => p => QuestTable.GetById(p.quest_id).Memo,
-            "塔" => p => p.tower_id.ToString(),
+            "战力" or "bp" => p => p.bp.ToString("N0"),
+            "等级" or "lv" => p => p.rank.ToString(),
+            "主线" or "q" => p => QuestTable.GetById(p.quest_id).Memo,
+            "塔" or "t" => p => p.tower_id.ToString(),
             _ => p => p.bp.ToString("N0")
         };
         msg.AppendLine("<table><tbody>");
@@ -525,28 +556,44 @@ public partial class MementoMoriQueryPlugin : CqMessageMatchPostPlugin
         // await _sessionAccessor.Session.SendGroupMessageAsync(context.GroupId, new CqMessage(msg.ToString()));
     }
 
-    [CqMessageMatch(@"^/竞技场排名\s*(?<server>日|韩|亚|美|欧|国际)(?<worldStr>\d+)$", RegexOptions.IgnoreCase | RegexOptions.Compiled)]
+    [CqMessageMatch(@"^/(竞技场|pvp)(排名|rank)\s*(?<server>日|jp|韩|kr|亚|as|美|us|欧|eu|国际|gl)(?<worldStr>\d+)$", RegexOptions.IgnoreCase | RegexOptions.Compiled)]
     public async Task GetArenaRanking(CqGroupMessagePostContext context, string server, string worldStr)
     {
         if (!IsGroupAllowed(context)) return;
         _logger.LogInformation($"{nameof(GetArenaRanking)} {server} {worldStr}");
 
+        var serverMap = new Dictionary<string, string>
+        {
+            {"日", "日服"},
+            {"jp", "日服"},
+            {"韩", "韩服"},
+            {"kr", "韩服"},
+            {"亚", "亚服"},
+            {"as", "亚服"},
+            {"美", "美服"},
+            {"us", "美服"},
+            {"欧", "欧服"},
+            {"eu", "欧服"},
+            {"国际", "国际服"},
+            {"gl", "国际服"},
+        };
+
         var world = int.Parse(worldStr);
         var worldId = server switch
         {
-            "日" => 1000 + world,
-            "韩" => 2000 + world,
-            "亚" => 3000 + world,
-            "美" => 4000 + world,
-            "欧" => 5000 + world,
-            "国际" => 6000 + world,
+            "日" or "jp" => 1000 + world,
+            "韩" or "kr" => 2000 + world,
+            "亚" or "as" => 3000 + world,
+            "美" or "us" => 4000 + world,
+            "欧" or "eu" => 5000 + world,
+            "国际" or "gl" => 6000 + world,
             _ => 1000 + world,
         };
 
         var arena = await _mentemoriIcu.Arena(worldId);
 
         var msg = new StringBuilder();
-        msg.AppendLine($"{server}{worldStr} 竞技场排名");
+        msg.AppendLine($"{serverMap.GetValueOrDefault(server, server)}{worldStr} 竞技场排名");
 
         for (var i = 0; i < arena.data.Count; i++)
         {
@@ -557,7 +604,7 @@ public partial class MementoMoriQueryPlugin : CqMessageMatchPostPlugin
         await _sessionAccessor.Session.SendGroupMessageAsync(context.GroupId, new CqMessage(msg.ToString()));
     }
 
-    [CqMessageMatch(@"^/公告\s*?(?<noticeIdStr>\d+)?$", RegexOptions.IgnoreCase | RegexOptions.Compiled)]
+    [CqMessageMatch(@"^/(公告|notice)\s*?(?<noticeIdStr>\d+)?$", RegexOptions.IgnoreCase | RegexOptions.Compiled)]
     public async Task RecentNotice(CqGroupMessagePostContext context, string? noticeIdStr)
     {
         if (!IsGroupAllowed(context)) return;
@@ -600,7 +647,8 @@ public partial class MementoMoriQueryPlugin : CqMessageMatchPostPlugin
         await _sessionAccessor.Session.SendGroupMessageAsync(context.GroupId, msg);
     }
 
-    [CqMessageMatch(@"^\/头像\s*(?:(?<rarity>n|(?:s|ss|u|l)?r)(?<plus>\+)?(?<numberStr>\d)?)?\s*(?<elementStr>(蓝|红|绿|黄|光|暗))?\s*(lv(?<lvStr>\d+))?", RegexOptions.IgnoreCase | RegexOptions.Compiled)]
+    [CqMessageMatch(@"^\/(头像|ava)\s*(?:(?<rarity>n|(?:s|ss|u|l)?r)(?<plus>\+)?(?<numberStr>\d)?)?\s*(?<elementStr>(蓝|b|红|r|绿|g|黄|y|光|l|暗|d))?\s*(lv(?<lvStr>\d+))?",
+        RegexOptions.IgnoreCase | RegexOptions.Compiled)]
     public async Task GenerateAvatar(CqGroupMessagePostContext context, string rarity, string plus, string numberStr, string elementStr, string? lvStr)
     {
         if (plus == "+" && rarity.Equals("n", StringComparison.OrdinalIgnoreCase)) return;
@@ -637,12 +685,12 @@ public partial class MementoMoriQueryPlugin : CqMessageMatchPostPlugin
 
         var elementType = elementStr switch
         {
-            "蓝" => ElementType.Blue,
-            "红" => ElementType.Red,
-            "绿" => ElementType.Green,
-            "黄" => ElementType.Yellow,
-            "光" => ElementType.Light,
-            "暗" => ElementType.Dark,
+            "蓝" or "b" => ElementType.Blue,
+            "红" or "r" => ElementType.Red,
+            "绿" or "g" => ElementType.Green,
+            "黄" or "y" => ElementType.Yellow,
+            "光" or "l" => ElementType.Light,
+            "暗" or "d" => ElementType.Dark,
             _ => ElementType.Blue
         };
 
@@ -664,13 +712,13 @@ public partial class MementoMoriQueryPlugin : CqMessageMatchPostPlugin
         }
     }
 
-    [CqMessageMatch(@"/抽卡\s*(?<name>列表|UP|命运|白金)(?<indexStr>\d)?", RegexOptions.IgnoreCase | RegexOptions.Compiled)]
+    [CqMessageMatch(@"/(抽卡|gacha)\s*(?<name>列表|list|UP|命运|des|白金|pla)(?<indexStr>\d)?", RegexOptions.IgnoreCase | RegexOptions.Compiled)]
     public async Task DrawCard(CqGroupMessagePostContext context, string name, string indexStr)
     {
         if (!IsGroupAllowed(context)) return;
         _logger.LogInformation($"{nameof(DrawCard)} {name}");
 
-        if (name == "列表")
+        if (name == "列表" || name == "list")
         {
             var msg = new StringBuilder();
             List<(string name, string character)> upList = [];
@@ -687,8 +735,8 @@ public partial class MementoMoriQueryPlugin : CqMessageMatchPostPlugin
             }
 
             for (var i = 0; i < upList.Count; i++) msg.AppendLine($"up{i + 1}: {upList[i].name} - {upList[i].character}");
-            for (var i = 0; i < denisty.Count; i++) msg.AppendLine($"命运{i + 1}: {denisty[i]}");
-            List<string> otherList = ["白金"];
+            for (var i = 0; i < denisty.Count; i++) msg.AppendLine($"命运|des{i + 1}: {denisty[i]}");
+            List<string> otherList = ["白金|pla"];
             foreach (var other in otherList) msg.AppendLine($"{other}");
             await _sessionAccessor.Session.SendGroupMessageAsync(context.GroupId, new CqMessage(msg.ToString()));
             return;
@@ -699,8 +747,8 @@ public partial class MementoMoriQueryPlugin : CqMessageMatchPostPlugin
             var (image, msg) = name.ToLower() switch
             {
                 "up" when int.TryParse(indexStr, out var index1) && index1 > 0 => await _gachaGenerator.Generate(GachaType.PickUp, context.Sender.UserId, index1),
-                "命运" when int.TryParse(indexStr, out var index2) && index2 > 0 => await _gachaGenerator.Generate(GachaType.Destiny, context.Sender.UserId, index2),
-                "白金" => await _gachaGenerator.Generate(GachaType.Platinum, context.Sender.UserId),
+                "命运" or "des" when int.TryParse(indexStr, out var index2) && index2 > 0 => await _gachaGenerator.Generate(GachaType.Destiny, context.Sender.UserId, index2),
+                "白金" or "pla" => await _gachaGenerator.Generate(GachaType.Platinum, context.Sender.UserId),
                 _ => ([], "")
             };
             if (image.Length > 0)
