@@ -14,11 +14,13 @@ using MementoMori.Extensions;
 using MementoMori.Option;
 using MementoMori.Ortega;
 using MementoMori.Ortega.Share;
+using MementoMori.Ortega.Share.Data.ApiInterface.Auth;
 using MementoMori.Ortega.Share.Data.ApiInterface.Notice;
 using MementoMori.Ortega.Share.Data.Notice;
 using MementoMori.Ortega.Share.Enums;
 using MementoMori.Ortega.Share.Master.Data;
 using Newtonsoft.Json.Linq;
+using Ortega.Common.Manager;
 using Refit;
 using static MementoMori.Ortega.Share.Masters;
 
@@ -80,10 +82,12 @@ public partial class MementoMoriQueryPlugin : CqMessageMatchPostPlugin
     private async Task AutoNotice()
     {
         await Task.Delay(TimeSpan.FromSeconds(10));
+        var apiAuth = _botOptions.Value.NoticeApiAuth;
         while (true)
         {
             try
             {
+                await Login();
                 await GetNotice(NoticeAccessType.Title, NoticeCategoryType.NoticeTab, option => option.LastNotices);
                 await GetNotice(NoticeAccessType.MyPage, NoticeCategoryType.EventTab, option => option.LastEvents);
             }
@@ -99,7 +103,6 @@ public partial class MementoMoriQueryPlugin : CqMessageMatchPostPlugin
 
         async Task GetNotice(NoticeAccessType noticeAccessType, NoticeCategoryType noticeCategoryType, Func<BotOptions, List<long>> getList)
         {
-            var apiAuth = _botOptions.Value.NoticeApiAuth;
             _logger.LogInformation("start retrieve notices");
             var listResponse = await _networkManager.GetResponse<GetNoticeInfoListRequest, GetNoticeInfoListResponse>(new GetNoticeInfoListRequest()
             {
@@ -107,7 +110,7 @@ public partial class MementoMoriQueryPlugin : CqMessageMatchPostPlugin
                 CategoryType = noticeCategoryType,
                 CountryCode = OrtegaConst.Addressable.LanguageNameDictionary[_networkManager.LanguageType],
                 LanguageType = _networkManager.LanguageType,
-                UserId = 0
+                UserId = _networkManager.UserId
             }, apiAuth: new Uri(apiAuth));
 
             var noticeInfos = listResponse.NoticeInfoList.OrderByDescending(d => d.Id).ToList();
@@ -139,6 +142,38 @@ public partial class MementoMoriQueryPlugin : CqMessageMatchPostPlugin
                     var cqImageMsg = CqImageMsg.FromBytes(bytes);
                     await _sessionAccessor.Session.SendGroupMessageAsync(group, new CqMessage(cqImageMsg, new CqTextMsg(noticeInfo.Title)));
                 }
+            }
+        }
+
+        async Task Login()
+        {
+            if (_networkManager.UserId > 0) return;
+            var createUserResponse = await _networkManager.GetResponse<CreateUserRequest, CreateUserResponse>(new CreateUserRequest
+            {
+                AdverisementId = "",
+                AppVersion = "9999.99.0",
+                CountryCode = "JP",
+                DeviceToken = "",
+                ModelName = "pixel",
+                DisplayLanguage = LanguageType.zhTW,
+                OSVersion = "Android 14",
+                SteamTicket = "",
+                AuthToken = await GetAuthToken()
+            } ,apiAuth: new Uri(apiAuth));
+            _networkManager.UserId = createUserResponse.UserId;
+        }
+
+        async Task<int> GetAuthToken()
+        {
+            try
+            {
+                var json = await _httpClientFactory.CreateClient().GetStringAsync("https://list.moonheart.dev/d/public/mmtm/AddressableLocalAssets/ScriptableObjects/AuthToken/AuthTokenData.json");
+                return JObject.Parse(json)["_authToken"]?.Value<int>() ?? 0;
+            }
+            catch (Exception e)
+            {
+                _logger.LogError(e, "failed to get authToken");
+                return 0;
             }
         }
     }
@@ -494,7 +529,7 @@ public partial class MementoMoriQueryPlugin : CqMessageMatchPostPlugin
             {"国际", "国际服"},
             {"gl", "国际服"},
         };
-        
+
         var rankTypeMap = new Dictionary<string, string>
         {
             {"bp", "战力"},
@@ -502,7 +537,7 @@ public partial class MementoMoriQueryPlugin : CqMessageMatchPostPlugin
             {"q", "主线"},
             {"t", "塔"},
         };
-        
+
         var world = int.Parse(worldStr);
         var worldId = server switch
         {
