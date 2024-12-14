@@ -88,8 +88,7 @@ public partial class MementoMoriQueryPlugin : CqMessageMatchPostPlugin
             try
             {
                 await Login();
-                await GetNotice(NoticeAccessType.Title, NoticeCategoryType.NoticeTab, option => option.LastNotices);
-                await GetNotice(NoticeAccessType.MyPage, NoticeCategoryType.EventTab, option => option.LastEvents);
+                await GetNotice(NoticeAccessType.Title, option => option.LastNotices);
             }
             catch (Exception e)
             {
@@ -101,19 +100,18 @@ public partial class MementoMoriQueryPlugin : CqMessageMatchPostPlugin
             }
         }
 
-        async Task GetNotice(NoticeAccessType noticeAccessType, NoticeCategoryType noticeCategoryType, Func<BotOptions, List<long>> getList)
+        async Task GetNotice(NoticeAccessType noticeAccessType, Func<BotOptions, List<long>> getList)
         {
             _logger.LogInformation("start retrieve notices");
             var listResponse = await _networkManager.GetResponse<GetNoticeInfoListRequest, GetNoticeInfoListResponse>(new GetNoticeInfoListRequest()
             {
                 AccessType = noticeAccessType,
-                CategoryType = noticeCategoryType,
                 CountryCode = OrtegaConst.Addressable.LanguageNameDictionary[_networkManager.LanguageType],
                 LanguageType = _networkManager.LanguageType,
-                UserId = _networkManager.UserId
+                UserId = 1
             }, apiAuth: new Uri(apiAuth));
 
-            var noticeInfos = listResponse.NoticeInfoList.OrderByDescending(d => d.Id).ToList();
+            var noticeInfos = listResponse.NoticeInfoList.Concat(listResponse.EventInfoList).OrderByDescending(d => d.Id).ToList();
             var noticeToPush = new List<NoticeInfo>();
             foreach (var noticeInfo in noticeInfos)
             {
@@ -152,7 +150,7 @@ public partial class MementoMoriQueryPlugin : CqMessageMatchPostPlugin
             {
                 AdverisementId = "",
                 AppVersion = "9999.99.0",
-                CountryCode = "JP",
+                CountryCode = "TW",
                 DeviceToken = "",
                 ModelName = "pixel",
                 DisplayLanguage = LanguageType.zhTW,
@@ -167,7 +165,7 @@ public partial class MementoMoriQueryPlugin : CqMessageMatchPostPlugin
         {
             try
             {
-                var json = await _httpClientFactory.CreateClient().GetStringAsync("https://list.moonheart.dev/d/public/mmtm/AddressableLocalAssets/ScriptableObjects/AuthToken/AuthTokenData.json");
+                var json = await _httpClientFactory.CreateClient().GetStringAsync("https://list.moonheart.dev/d/public/mmtm/AddressableLocalAssets/ScriptableObjects/AuthToken/AuthTokenData.json?v=" + DateTimeOffset.Now.ToUnixTimeMilliseconds());
                 return JObject.Parse(json)["_authToken"]?.Value<int>() ?? 0;
             }
             catch (Exception e)
